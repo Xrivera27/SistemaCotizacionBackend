@@ -3,8 +3,15 @@ const authRoutes = require('./auth');
 
 const router = express.Router();
 
+const usuariosRoutes = require('./usuarios');
+
+
+
 // Registrar todas las rutas
 router.use('/auth', authRoutes);
+
+router.use('/usuarios', usuariosRoutes);
+
 
 // Ruta de salud del API
 router.get('/health', (req, res) => {

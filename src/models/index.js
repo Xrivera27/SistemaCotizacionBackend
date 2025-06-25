@@ -42,7 +42,7 @@ const defineAssociations = () => {
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ Conexión a MySQL establecida correctamente');
+    console.log('Conexión a MySQL establecida correctamente');
   } catch (error) {
     console.error('❌ Error conectando a la base de datos:', error);
     process.exit(1);
@@ -53,7 +53,7 @@ const connectDB = async () => {
 const syncModels = async () => {
   try {
     await sequelize.sync({ alter: false });
-    console.log('✅ Modelos sincronizados con la base de datos');
+    console.log('Modelos sincronizados con la base de datos');
   } catch (error) {
     console.error('❌ Error sincronizando modelos:', error);
   }
