@@ -1,17 +1,14 @@
 const express = require('express');
 const authRoutes = require('./auth');
+const usuariosRoutes = require('./usuarios');
+const clientesRoutes = require('./clientes'); 
 
 const router = express.Router();
 
-const usuariosRoutes = require('./usuarios');
-
-
-
 // Registrar todas las rutas
 router.use('/auth', authRoutes);
-
 router.use('/usuarios', usuariosRoutes);
-
+router.use('/clientes', clientesRoutes); 
 
 // Ruta de salud del API
 router.get('/health', (req, res) => {
