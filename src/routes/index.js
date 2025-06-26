@@ -2,6 +2,9 @@ const express = require('express');
 const authRoutes = require('./auth');
 const usuariosRoutes = require('./usuarios');
 const clientesRoutes = require('./clientes'); 
+const categoriasRoutes = require('./categorias'); 
+const serviciosRoutes = require('./servicios');
+const cotizacionesRoutes = require('./cotizaciones'); // ← NUEVA LÍNEA
 
 const router = express.Router();
 
@@ -9,6 +12,9 @@ const router = express.Router();
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuariosRoutes);
 router.use('/clientes', clientesRoutes); 
+router.use('/categorias', categoriasRoutes); 
+router.use('/servicios', serviciosRoutes);
+router.use('/cotizaciones', cotizacionesRoutes); // ← NUEVA LÍNEA
 
 // Ruta de salud del API
 router.get('/health', (req, res) => {

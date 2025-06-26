@@ -14,6 +14,11 @@ const Categoria = sequelize.define('Categoria', {
   descripcion: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  estado: {
+    type: DataTypes.ENUM('activo', 'inactivo'),
+    defaultValue: 'activo',
+    allowNull: false
   }
 }, {
   tableName: 'categorias',

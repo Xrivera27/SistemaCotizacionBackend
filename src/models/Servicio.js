@@ -30,6 +30,11 @@ const Servicio = sequelize.define('Servicio', {
   precio_recomendado: {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false
+  },
+  estado: {
+    type: DataTypes.ENUM('activo', 'inactivo'),
+    defaultValue: 'activo',
+    allowNull: false
   }
 }, {
   tableName: 'servicios',

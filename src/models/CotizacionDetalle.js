@@ -35,6 +35,10 @@ const CotizacionDetalle = sequelize.define('CotizacionDetalle', {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
+  cantidad_anos: {           // 🆕 NUEVO CAMPO
+    type: DataTypes.INTEGER,
+    defaultValue: 1
+  },
   precio_usado: {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false
