@@ -344,6 +344,62 @@ class ClienteService {
       throw error;
     }
   }
+
+  // ✅ NUEVO: Buscar clientes con filtros (incluye filtro de usuario para modales)
+// ✅ CORREGIDO: Buscar clientes con filtros
+async searchClientesWithFilters(filters = {}) {
+  try {
+    console.log('🔍 Service: Buscando clientes con filtros:', filters);
+    
+    const whereConditions = {};
+    
+    // ✅ CORREGIDO: Solo aplicar filtro de búsqueda si hay término
+    if (filters.search && filters.search.trim().length > 0) {
+      whereConditions[Op.or] = [
+        { nombre_encargado: { [Op.like]: `%${filters.search}%` } },
+        { nombre_empresa: { [Op.like]: `%${filters.search}%` } },
+        { documento_fiscal: { [Op.like]: `%${filters.search}%` } }
+      ];
+    }
+    
+    // Filtro por estado
+    if (filters.estado) {
+      whereConditions.estado = filters.estado;
+    }
+    
+    // Filtro por usuarios_id (manager)
+    if (filters.usuarios_id) {
+      whereConditions.usuarios_id = filters.usuarios_id;
+      console.log('🔒 Aplicando filtro de usuario (manager):', filters.usuarios_id);
+    }
+    
+    const options = {
+      where: whereConditions,
+      include: [{
+        model: Usuario,
+        as: 'manager',
+        attributes: ['usuarios_id', 'nombre_completo', 'correo']
+      }],
+      limit: filters.limit || 10,
+      order: [['nombre_empresa', 'ASC']]
+    };
+    
+    console.log('📊 Condiciones WHERE:', JSON.stringify(whereConditions, null, 2));
+    
+    const clientes = await Cliente.findAll(options);
+    
+    console.log(`✅ Service: ${clientes.length} clientes encontrados`);
+    
+    return {
+      success: true,
+      clientes: clientes.map(cliente => cliente.toJSON())
+    };
+    
+  } catch (error) {
+    console.error('❌ Service: Error buscando clientes:', error);
+    throw error;
+  }
+}
 }
 
 module.exports = new ClienteService();

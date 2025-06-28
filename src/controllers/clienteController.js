@@ -11,10 +11,8 @@ class ClienteController {
       
       const filters = { ...req.query };
       
-      // Si el usuario es vendedor, solo puede ver sus propios clientes
-      if (req.user.tipo_usuario === 'vendedor') {
-        filters.usuarios_id = req.user.id;
-      }
+      // ✅ CORREGIDO: TODOS los usuarios solo ven sus propios clientes
+      filters.usuarios_id = req.user.id;
       
       const result = await clienteService.getClientes(filters);
       
@@ -51,10 +49,9 @@ class ClienteController {
         return res.status(404).json(result);
       }
       
-      // Verificar permisos: vendedores solo pueden ver sus clientes
-      if (req.user.tipo_usuario === 'vendedor' && 
-          result.cliente.usuarios_id !== req.user.id) {
-        console.log('❌ Vendedor intentando acceder a cliente ajeno');
+      // ✅ CORREGIDO: TODOS los usuarios solo pueden ver sus clientes
+      if (result.cliente.usuarios_id !== req.user.id) {
+        console.log('❌ Usuario intentando acceder a cliente ajeno');
         return res.status(403).json({
           success: false,
           message: 'No tienes permisos para ver este cliente'
@@ -84,20 +81,8 @@ class ClienteController {
       console.log('Datos recibidos:', req.validatedData);
       console.log('Usuario creador:', req.user);
       
-      // Asignar el usuario actual como manager si no se especifica otro
-      if (!req.validatedData.usuarios_id) {
-        req.validatedData.usuarios_id = req.user.id;
-      }
-      
-      // Solo admins pueden asignar otros usuarios como managers
-      if (req.validatedData.usuarios_id !== req.user.id && 
-          req.user.tipo_usuario !== 'admin') {
-        console.log('❌ Vendedor intentando asignar otro manager');
-        return res.status(403).json({
-          success: false,
-          message: 'No puedes asignar otros usuarios como managers'
-        });
-      }
+      // ✅ CORREGIDO: SIEMPRE asignar el usuario actual como manager
+      req.validatedData.usuarios_id = req.user.id;
       
       const result = await clienteService.createCliente(req.validatedData);
       
@@ -151,26 +136,17 @@ class ClienteController {
         return res.status(404).json(clienteCheck);
       }
       
-      // Verificar permisos: vendedores solo pueden editar sus clientes
-      if (req.user.tipo_usuario === 'vendedor' && 
-          clienteCheck.cliente.usuarios_id !== req.user.id) {
-        console.log('❌ Vendedor intentando editar cliente ajeno');
+      // ✅ CORREGIDO: TODOS los usuarios solo pueden editar sus clientes
+      if (clienteCheck.cliente.usuarios_id !== req.user.id) {
+        console.log('❌ Usuario intentando editar cliente ajeno');
         return res.status(403).json({
           success: false,
           message: 'No tienes permisos para editar este cliente'
         });
       }
       
-      // Solo admins pueden cambiar el manager
-      if (req.validatedData.usuarios_id && 
-          req.validatedData.usuarios_id !== clienteCheck.cliente.usuarios_id &&
-          req.user.tipo_usuario !== 'admin') {
-        console.log('❌ Vendedor intentando cambiar manager');
-        return res.status(403).json({
-          success: false,
-          message: 'No puedes cambiar el manager del cliente'
-        });
-      }
+      // ✅ CORREGIDO: No permitir cambiar el manager
+      delete req.validatedData.usuarios_id;
       
       const result = await clienteService.updateCliente(id, req.validatedData);
       
@@ -223,10 +199,9 @@ class ClienteController {
         return res.status(404).json(clienteCheck);
       }
       
-      // Verificar permisos: vendedores solo pueden eliminar sus clientes
-      if (req.user.tipo_usuario === 'vendedor' && 
-          clienteCheck.cliente.usuarios_id !== req.user.id) {
-        console.log('❌ Vendedor intentando eliminar cliente ajeno');
+      // ✅ CORREGIDO: TODOS los usuarios solo pueden eliminar sus clientes
+      if (clienteCheck.cliente.usuarios_id !== req.user.id) {
+        console.log('❌ Usuario intentando eliminar cliente ajeno');
         return res.status(403).json({
           success: false,
           message: 'No tienes permisos para eliminar este cliente'
@@ -301,7 +276,7 @@ class ClienteController {
     }
   }
   
-  // Buscar clientes para autocompletado
+  // Buscar clientes para autocompletado (SIN filtros - para uso administrativo)
   async searchClientes(req, res) {
     try {
       console.log('=== SEARCH CLIENTES ===');
@@ -325,6 +300,51 @@ class ClienteController {
       
     } catch (error) {
       console.error('❌ Error buscando clientes:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  // ✅ CORREGIDO: Búsqueda de clientes para modales - TODOS ven solo sus clientes
+  async searchClientesModal(req, res) {
+    try {
+      console.log('=== SEARCH CLIENTES MODAL ===');
+      const { q, limit = 10 } = req.query;
+      console.log('Usuario buscando:', req.user.usuario, '- Tipo:', req.user.tipo_usuario, '- ID:', req.user.id);
+      console.log('Término de búsqueda:', q);
+      
+      // ✅ CORREGIDO: Permitir búsquedas vacías
+      if (q && q.trim().length > 0 && q.trim().length < 2) {
+        return res.json({
+          success: true,
+          data: { clientes: [] }
+        });
+      }
+
+      // ✅ CORREGIDO: TODOS los usuarios solo ven sus propios clientes
+      const filters = {
+        search: q ? q.trim() : '',
+        limit: parseInt(limit),
+        estado: 'activo',
+        usuarios_id: req.user.id  // ✅ SIEMPRE aplicar filtro por usuario
+      };
+
+      console.log('🔒 Filtro aplicado - usuarios_id:', req.user.id);
+      console.log('Filtros aplicados:', filters);
+      
+      const result = await clienteService.searchClientesWithFilters(filters);
+      
+      console.log(`✅ Clientes encontrados: ${result.clientes.length}`);
+      
+      res.json({
+        success: true,
+        data: { clientes: result.clientes }
+      });
+      
+    } catch (error) {
+      console.error('❌ Error buscando clientes para modal:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

@@ -6,17 +6,18 @@ const clienteController = require('../controllers/clienteController');
 
 const router = express.Router();
 
-// Middleware de autenticación para todas las rutas
+// ✅ APLICAR AUTENTICACIÓN A TODAS LAS RUTAS
 router.use(authenticateToken);
 
-// Rutas públicas para todos los usuarios autenticados
-router.get('/search', clienteController.searchClientes);
-router.get('/', clienteController.getClientes);
-router.get('/:id', clienteController.getClienteById);
-router.post('/', validate(schemas.createClient), clienteController.createCliente);
-router.put('/:id', validate(schemas.updateClient), clienteController.updateCliente);
+// ✅ RUTAS PÚBLICAS PARA USUARIOS AUTENTICADOS (vendedores pueden usar estas)
+router.get('/modal/search', clienteController.searchClientesModal); // ✅ NUEVO - búsqueda para modales CON filtros
+router.get('/search', clienteController.searchClientes);            // ✅ Admin - búsqueda sin filtros para CRUD
+router.get('/', clienteController.getClientes);                     // ✅ Vendedores ven sus clientes
+router.get('/:id', clienteController.getClienteById);               // ✅ Vendedores ven sus clientes
+router.post('/', validate(schemas.createClient), clienteController.createCliente);    // ✅ Vendedores pueden crear
+router.put('/:id', validate(schemas.updateClient), clienteController.updateCliente);  // ✅ Vendedores pueden editar sus clientes
 
-// Rutas que requieren permisos especiales
+// ✅ RUTAS ADMINISTRATIVAS (solo admins y super usuarios)
 router.get('/admin/estadisticas', requireAdminOrSuper, clienteController.getEstadisticas);
 router.delete('/:id', requireAdminOrSuper, clienteController.deleteCliente);
 router.patch('/:id/restore', requireAdmin, clienteController.restoreCliente);
