@@ -509,6 +509,52 @@ class UsuarioController {
       });
     }
   }
+
+  // Obtener usuarios activos para ser managers (dropdown)
+async getUsuariosParaManager(req, res) {
+  try {
+    console.log('=== GET USUARIOS PARA MANAGER ===');
+    console.log('Usuario solicitante:', req.user.tipo_usuario);
+    
+    let whereConditions = {
+      estado: 'activo'
+    };
+    
+    // ✅ FILTROS SEGÚN ROL DEL USUARIO ACTUAL
+    if (req.user.tipo_usuario === 'vendedor') {
+      // Vendedor solo puede asignarse a sí mismo
+      whereConditions.usuarios_id = req.user.id;
+    }
+    // Admin y super_usuario pueden ver todos los usuarios activos
+    
+    const usuarios = await Usuario.findAll({
+      where: whereConditions,
+      attributes: [
+        'usuarios_id',
+        'nombre_completo',
+        'correo',
+        'usuario',
+        'tipo_usuario'
+      ],
+      order: [['nombre_completo', 'ASC']]
+    });
+    
+    console.log(`✅ ${usuarios.length} usuarios disponibles para manager`);
+    
+    res.json({
+      success: true,
+      data: { usuarios }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo usuarios para manager:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+}
+
 }
 
 module.exports = new UsuarioController();

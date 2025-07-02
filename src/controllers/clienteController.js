@@ -123,68 +123,92 @@ class ClienteController {
   }
   
   // Actualizar cliente
-  async updateCliente(req, res) {
-    try {
-      console.log('=== UPDATE CLIENTE ===');
-      const { id } = req.params;
-      console.log('ID a actualizar:', id);
-      console.log('Datos recibidos:', req.validatedData);
+// Actualizar cliente
+async updateCliente(req, res) {
+  try {
+    console.log('=== UPDATE CLIENTE ===');
+    const { id } = req.params;
+    console.log('ID a actualizar:', id);
+    console.log('Datos recibidos:', req.validatedData);
+    console.log('Usuario que actualiza:', req.user.usuario, '- Tipo:', req.user.tipo_usuario);
+    
+    // Verificar que el cliente existe
+    const clienteCheck = await clienteService.getClienteById(id);
+    if (!clienteCheck.success) {
+      return res.status(404).json(clienteCheck);
+    }
+    
+    console.log('Cliente actual - Manager ID:', clienteCheck.cliente.usuarios_id);
+    console.log('Nuevo Manager ID solicitado:', req.validatedData.usuarios_id);
+    
+    // ✅ CORREGIDO: Verificar permisos para cambiar manager
+    if (req.validatedData.usuarios_id && req.validatedData.usuarios_id !== clienteCheck.cliente.usuarios_id) {
+      console.log('🔄 Cambio de manager detectado');
       
-      // Verificar que el cliente existe y permisos
-      const clienteCheck = await clienteService.getClienteById(id);
-      if (!clienteCheck.success) {
-        return res.status(404).json(clienteCheck);
-      }
-      
-      // ✅ CORREGIDO: TODOS los usuarios solo pueden editar sus clientes
-      if (clienteCheck.cliente.usuarios_id !== req.user.id) {
-        console.log('❌ Usuario intentando editar cliente ajeno');
+      // Solo admin y super_usuario pueden cambiar manager
+      if (req.user.tipo_usuario === 'vendedor') {
+        console.log('❌ Vendedor intentando cambiar manager');
         return res.status(403).json({
           success: false,
-          message: 'No tienes permisos para editar este cliente'
+          message: 'No tienes permisos para cambiar el manager de este cliente'
         });
       }
       
-      // ✅ CORREGIDO: No permitir cambiar el manager
-      delete req.validatedData.usuarios_id;
-      
-      const result = await clienteService.updateCliente(id, req.validatedData);
-      
-      if (!result.success) {
-        console.log('❌ Error actualizando cliente:', result.message);
-        return res.status(400).json(result);
-      }
-      
-      console.log('✅ Cliente actualizado exitosamente');
-      
-      res.json({
-        success: true,
-        message: result.message,
-        data: { cliente: result.cliente }
-      });
-      
-    } catch (error) {
-      console.error('❌ Error actualizando cliente:', error);
-      
-      if (error.name === 'SequelizeValidationError') {
-        const errores = error.errors.map(err => ({
-          campo: err.path,
-          mensaje: err.message
-        }));
-        
-        return res.status(400).json({
-          success: false,
-          message: 'Errores de validación',
-          errores
-        });
-      }
-      
-      res.status(500).json({
+      console.log('✅ Usuario autorizado para cambiar manager');
+    }
+    
+    // ✅ CORREGIDO: Verificar que el usuario actual puede editar este cliente
+    if (req.user.tipo_usuario === 'vendedor' && clienteCheck.cliente.usuarios_id !== req.user.id) {
+      console.log('❌ Vendedor intentando editar cliente ajeno');
+      return res.status(403).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'No tienes permisos para editar este cliente'
       });
     }
+    
+    // ✅ CORREGIDO: NO eliminar usuarios_id - permitir el cambio
+    // delete req.validatedData.usuarios_id; ← ESTA LÍNEA SE ELIMINA
+    
+    console.log('📝 Datos finales a actualizar:', req.validatedData);
+    
+    const result = await clienteService.updateCliente(id, req.validatedData);
+    
+    if (!result.success) {
+      console.log('❌ Error actualizando cliente:', result.message);
+      return res.status(400).json(result);
+    }
+    
+    console.log('✅ Cliente actualizado exitosamente');
+    console.log('✅ Nuevo manager:', result.cliente.manager?.nombre_completo);
+    
+    res.json({
+      success: true,
+      message: result.message,
+      data: { cliente: result.cliente }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error actualizando cliente:', error);
+    
+    if (error.name === 'SequelizeValidationError') {
+      const errores = error.errors.map(err => ({
+        campo: err.path,
+        mensaje: err.message
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Errores de validación',
+        errores
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
   }
+}
   
   // Eliminar cliente (soft delete)
   async deleteCliente(req, res) {
@@ -351,6 +375,101 @@ class ClienteController {
       });
     }
   }
+
+
+  // ✅ NUEVO: Obtener TODOS los clientes para administración (sin filtros de usuario)
+async getClientesAdmin(req, res) {
+  try {
+    console.log('=== GET CLIENTES ADMIN ===');
+    console.log('Query params:', req.query);
+    console.log('Usuario admin:', req.user.usuario, '- Tipo:', req.user.tipo_usuario);
+    
+    const filters = { ...req.query };
+    
+    // ✅ NO aplicar filtro de usuario - mostrar TODOS los clientes
+    // NO añadir: filters.usuarios_id = req.user.id;
+    
+    console.log('🔓 Obteniendo TODOS los clientes (sin filtro de usuario)');
+    
+    const result = await clienteService.getClientes(filters);
+    
+    console.log(`✅ Clientes encontrados (admin): ${result.pagination.totalItems}`);
+    
+    res.json({
+      success: true,
+      data: {
+        clientes: result.clientes,
+        pagination: result.pagination
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo clientes admin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+}
+
+// ✅ NUEVO: Crear cliente desde administración (con selección de manager)
+async createClienteAdmin(req, res) {
+  try {
+    console.log('=== CREATE CLIENTE ADMIN ===');
+    console.log('Datos recibidos:', req.validatedData);
+    console.log('Usuario admin:', req.user.usuario, '- Tipo:', req.user.tipo_usuario);
+    
+    // ✅ Validar que se seleccionó un manager
+    if (!req.validatedData.usuarios_id) {
+      console.log('❌ No se seleccionó manager');
+      return res.status(400).json({
+        success: false,
+        message: 'Debe seleccionar un manager para el cliente'
+      });
+    }
+    
+    console.log('👥 Manager seleccionado:', req.validatedData.usuarios_id);
+    
+    const result = await clienteService.createCliente(req.validatedData);
+    
+    if (!result.success) {
+      console.log('❌ Error creando cliente:', result.message);
+      return res.status(400).json(result);
+    }
+    
+    console.log('✅ Cliente creado exitosamente desde admin:', result.cliente.nombre_empresa);
+    console.log('✅ Manager asignado:', result.cliente.manager?.nombre_completo);
+    
+    res.status(201).json({
+      success: true,
+      message: result.message,
+      data: { cliente: result.cliente }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error creando cliente admin:', error);
+    
+    if (error.name === 'SequelizeValidationError') {
+      const errores = error.errors.map(err => ({
+        campo: err.path,
+        mensaje: err.message
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Errores de validación',
+        errores
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+}
+
+
 }
 
 module.exports = new ClienteController();

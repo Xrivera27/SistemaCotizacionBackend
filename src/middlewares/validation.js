@@ -287,7 +287,7 @@ updateInformacionPersonal: Joi.object({
  }),
 
  // ==================== CLIENTES ====================
- // Crear cliente
+ // ✅ CORREGIDO: Crear cliente
  createClient: Joi.object({
    nombre_encargado: Joi.string()
      .min(2)
@@ -353,10 +353,21 @@ updateInformacionPersonal: Joi.object({
      .messages({
        'string.email': 'Debe ser un correo electrónico válido',
        'string.max': 'El correo de empresa no puede tener más de 191 caracteres'
+     }),
+
+   // ✅ NUEVO: Campo manager para crear cliente
+   usuarios_id: Joi.number()
+     .integer()
+     .positive()
+     .optional()
+     .messages({
+       'number.base': 'El manager debe ser un número',
+       'number.integer': 'El manager debe ser un número entero',
+       'number.positive': 'Debe seleccionar un manager válido'
      })
  }),
 
- // Actualizar cliente
+ // ✅ CORREGIDO: Actualizar cliente
  updateClient: Joi.object({
    nombre_encargado: Joi.string()
      .min(2)
@@ -419,6 +430,25 @@ updateInformacionPersonal: Joi.object({
      .messages({
        'string.email': 'Debe ser un correo electrónico válido',
        'string.max': 'El correo de empresa no puede tener más de 191 caracteres'
+     }),
+
+   // ✅ NUEVO: Campo manager para actualizar cliente
+   usuarios_id: Joi.number()
+     .integer()
+     .positive()
+     .optional()
+     .messages({
+       'number.base': 'El manager debe ser un número',
+       'number.integer': 'El manager debe ser un número entero',
+       'number.positive': 'Debe seleccionar un manager válido'
+     }),
+
+   // ✅ NUEVO: Campo estado para actualizar cliente
+   estado: Joi.string()
+     .valid('activo', 'inactivo')
+     .optional()
+     .messages({
+       'any.only': 'El estado debe ser: activo o inactivo'
      })
  }),
 
@@ -819,115 +849,115 @@ updateInformacionPersonal: Joi.object({
            .messages({
              'number.base': 'La cantidad de GB debe ser un número',
              'number.integer': 'La cantidad de GB debe ser un número entero',
-             'number.min': 'La cantidad de GB no puede ser negativa'
-           }),
-         
-         precio_usado: Joi.number()
-           .positive()
-           .precision(2)
-           .required()
-           .messages({
-             'number.base': 'El precio debe ser un número',
-             'number.positive': 'El precio debe ser mayor a 0',
-             'any.required': 'El precio es requerido'
-           })
-       })
-     )
-     .min(1)
-     .required()
-     .messages({
-       'array.min': 'Debe incluir al menos un servicio',
-       'any.required': 'Los servicios son requeridos'
-     }),
-   
-   comentario: Joi.string()
-     .allow('')
-     .optional()
-     .messages({
-       'string.base': 'El comentario debe ser texto'
-     }),
-   
-    incluir_nombre_encargado: Joi.boolean()
-    .default(false)
+            'number.min': 'La cantidad de GB no puede ser negativa'
+          }),
+        
+        precio_usado: Joi.number()
+          .positive()
+          .precision(2)
+          .required()
+          .messages({
+            'number.base': 'El precio debe ser un número',
+            'number.positive': 'El precio debe ser mayor a 0',
+            'any.required': 'El precio es requerido'
+          })
+      })
+    )
+    .min(1)
+    .required()
     .messages({
-      'boolean.base': 'Debe ser verdadero o falso'
+      'array.min': 'Debe incluir al menos un servicio',
+      'any.required': 'Los servicios son requeridos'
     }),
   
-  incluir_nombre_empresa: Joi.boolean()
-    .default(false)
+  comentario: Joi.string()
+    .allow('')
+    .optional()
     .messages({
-      'boolean.base': 'Debe ser verdadero o falso'
+      'string.base': 'El comentario debe ser texto'
     }),
   
-  incluir_documento_fiscal: Joi.boolean()
-    .default(false)
-    .messages({
-      'boolean.base': 'Debe ser verdadero o falso'
-    }),
-  
-  incluir_telefono_empresa: Joi.boolean()
-    .default(false)
-    .messages({
-      'boolean.base': 'Debe ser verdadero o falso'
-    }),
-  
-  incluir_correo_empresa: Joi.boolean()
-    .default(false)
-    .messages({
-      'boolean.base': 'Debe ser verdadero o falso'
-    }),
-  
-  tipo_precio_pdf: Joi.string()
-    .valid('minimo', 'venta')
-    .default('venta')
-    .messages({
-      'any.only': 'El tipo de precio debe ser: minimo o venta'
-    })
+   incluir_nombre_encargado: Joi.boolean()
+   .default(false)
+   .messages({
+     'boolean.base': 'Debe ser verdadero o falso'
+   }),
+ 
+ incluir_nombre_empresa: Joi.boolean()
+   .default(false)
+   .messages({
+     'boolean.base': 'Debe ser verdadero o falso'
+   }),
+ 
+ incluir_documento_fiscal: Joi.boolean()
+   .default(false)
+   .messages({
+     'boolean.base': 'Debe ser verdadero o falso'
+   }),
+ 
+ incluir_telefono_empresa: Joi.boolean()
+   .default(false)
+   .messages({
+     'boolean.base': 'Debe ser verdadero o falso'
+   }),
+ 
+ incluir_correo_empresa: Joi.boolean()
+   .default(false)
+   .messages({
+     'boolean.base': 'Debe ser verdadero o falso'
+   }),
+ 
+ tipo_precio_pdf: Joi.string()
+   .valid('minimo', 'venta')
+   .default('venta')
+   .messages({
+     'any.only': 'El tipo de precio debe ser: minimo o venta'
+   })
 }),
 
 // Actualizar cotización
 updateQuote: Joi.object({
-  clientes_id: Joi.number()
-    .integer()
-    .positive()
-    .optional()
-    .messages({
-      'number.base': 'El cliente debe ser un número',
-      'number.integer': 'El cliente debe ser un número entero',
-      'number.positive': 'Debe seleccionar un cliente válido'
-    }),
-  
-  comentario: Joi.string()
-    .allow('')
-    .optional()
-    .messages({
-      'string.base': 'El comentario debe ser texto'
-    }),
-  
-  estado: Joi.string()
-    .valid('pendiente', 'pendiente_aprobacion', 'efectiva', 'rechazada')
-    .optional()
-    .messages({
-      'any.only': 'El estado debe ser: pendiente, pendiente_aprobacion, efectiva o rechazada'
-    })
+ clientes_id: Joi.number()
+   .integer()
+   .positive()
+   .optional()
+   .messages({
+     'number.base': 'El cliente debe ser un número',
+     'number.integer': 'El cliente debe ser un número entero',
+     'number.positive': 'Debe seleccionar un cliente válido'
+   }),
+ 
+ comentario: Joi.string()
+   .allow('')
+   .optional()
+   .messages({
+     'string.base': 'El comentario debe ser texto'
+   }),
+ 
+ estado: Joi.string()
+   .valid('pendiente', 'pendiente_aprobacion', 'efectiva', 'rechazada')
+   .optional()
+   .messages({
+     'any.only': 'El estado debe ser: pendiente, pendiente_aprobacion, efectiva o rechazada'
+   })
 }),
 
 // Actualizar estado de cotización
 updateEstadoCotizacion: Joi.object({
-  estado: Joi.string()
-    .valid('pendiente', 'pendiente_aprobacion', 'efectiva', 'rechazada')
-    .required()
-    .messages({
-      'any.only': 'El estado debe ser: pendiente, pendiente_aprobacion, efectiva o rechazada',
-      'string.empty': 'El estado es requerido'
-    }),
-  
-  comentario: Joi.string()
-    .allow('')
-    .optional()
-    .messages({
-      'string.base': 'El comentario debe ser texto'
-    })
+ estado: Joi.string()
+   .valid('pendiente', 'pendiente_aprobacion', 'efectiva', 'rechazada')
+   .required()
+   .messages({
+     'any.only': 'El estado debe ser: pendiente, pendiente_aprobacion, efectiva o rechazada',
+     'string.empty': 'El estado es requerido'
+   }),
+ 
+ comentario: Joi.string()
+   .allow('')
+   .optional()
+   .messages({
+     'string.base': 'El comentario debe ser texto'
+   })
 })
 };
 

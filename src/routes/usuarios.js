@@ -15,6 +15,7 @@ router.get('/estadisticas', requireAdminOrSuper, usuarioController.getEstadistic
 router.post('/', requireAdmin, validate(schemas.createUsuario), usuarioController.createUsuario);
 router.delete('/:id', requireAdmin, usuarioController.deleteUsuario);
 router.patch('/:id/restore', requireAdmin, usuarioController.restoreUsuario);
+router.get('/managers/disponibles', usuarioController.getUsuariosParaManager); // ✅ NUEVA LÍNEA
 
 // Rutas que pueden usar admins o el propio usuario
 router.get('/:id', requireOwnerOrAdmin, usuarioController.getUsuarioById);
