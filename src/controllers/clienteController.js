@@ -74,53 +74,53 @@ class ClienteController {
     }
   }
   
-  // Crear nuevo cliente
-  async createCliente(req, res) {
-    try {
-      console.log('=== CREATE CLIENTE ===');
-      console.log('Datos recibidos:', req.validatedData);
-      console.log('Usuario creador:', req.user);
+// En clienteController.js - método createCliente ORIGINAL
+async createCliente(req, res) {
+  try {
+    console.log('=== CREATE CLIENTE (COTIZACIONES) ===');
+    console.log('Datos recibidos:', req.validatedData);
+    console.log('Usuario creador:', req.user);
+    
+    // ✅ ASIGNAR usuario actual como manager (comportamiento original)
+    req.validatedData.usuarios_id = req.user.id;
+    
+    const result = await clienteService.createCliente(req.validatedData);
+    
+    if (!result.success) {
+      console.log('❌ Error creando cliente:', result.message);
+      return res.status(400).json(result);
+    }
+    
+    console.log('✅ Cliente creado exitosamente:', result.cliente.nombre_empresa);
+    
+    res.status(201).json({
+      success: true,
+      message: result.message,
+      data: { cliente: result.cliente }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error creando cliente:', error);
+    
+    if (error.name === 'SequelizeValidationError') {
+      const errores = error.errors.map(err => ({
+        campo: err.path,
+        mensaje: err.message
+      }));
       
-      // ✅ CORREGIDO: SIEMPRE asignar el usuario actual como manager
-      req.validatedData.usuarios_id = req.user.id;
-      
-      const result = await clienteService.createCliente(req.validatedData);
-      
-      if (!result.success) {
-        console.log('❌ Error creando cliente:', result.message);
-        return res.status(400).json(result);
-      }
-      
-      console.log('✅ Cliente creado exitosamente:', result.cliente.nombre_empresa);
-      
-      res.status(201).json({
-        success: true,
-        message: result.message,
-        data: { cliente: result.cliente }
-      });
-      
-    } catch (error) {
-      console.error('❌ Error creando cliente:', error);
-      
-      if (error.name === 'SequelizeValidationError') {
-        const errores = error.errors.map(err => ({
-          campo: err.path,
-          mensaje: err.message
-        }));
-        
-        return res.status(400).json({
-          success: false,
-          message: 'Errores de validación',
-          errores
-        });
-      }
-      
-      res.status(500).json({
+      return res.status(400).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Errores de validación',
+        errores
       });
     }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
   }
+}
   
   // Actualizar cliente
 // Actualizar cliente
