@@ -434,54 +434,406 @@ class CotizacionController {
     }
   }
 
-  // Cambiar estado de cotización
-  async cambiarEstado(req, res) {
-    try {
-      const { id } = req.params;
-      const { estado, motivo_rechazo } = req.body;
+// Método actualizado y corregido completo en cotizacionController.js
+async cambiarEstado(req, res) {
+ try {
+   const { id } = req.params;
+   const { estado, motivo_rechazo } = req.body;
+   
+   // 🔧 CORREGIDO: Usar id del token (ya que tienes id: 5 en el token)
+   const usuarioId = req.user.id;
+   const usuarioNombre = req.user.nombre_completo; // 🆕 Obtener nombre del token
+   
+   console.log('🔍 Debug - Usuario ID:', usuarioId, 'Nombre:', usuarioNombre);
 
-      const estadosValidos = ['pendiente', 'pendiente_aprobacion', 'efectiva', 'rechazada'];
-      if (!estadosValidos.includes(estado)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Estado no válido'
-        });
-      }
+   // ✅ Estados que puede recibir desde las rutas
+   const estadosValidos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'efectiva', 'rechazada'];
+   
+   if (!estadosValidos.includes(estado)) {
+     return res.status(400).json({
+       success: false,
+       message: 'Estado no válido'
+     });
+   }
 
-      const cotizacion = await Cotizacion.findByPk(id);
-      if (!cotizacion) {
-        return res.status(404).json({
-          success: false,
-          message: 'Cotización no encontrada'
-        });
-      }
+   const cotizacion = await Cotizacion.findByPk(id);
+   if (!cotizacion) {
+     return res.status(404).json({
+       success: false,
+       message: 'Cotización no encontrada'
+     });
+   }
 
-      // Solo actualizar los campos que existen en la BD
-      const updateData = { 
-        estado
+   // Preparar datos para actualizar
+   const updateData = { 
+     estado // Por defecto mantiene el estado recibido
+   };
+
+   // 🔄 Lógica del flujo corregida
+   switch (estado) {
+     case 'aprobado':
+       // SuperUsuario aprueba: pendiente_aprobacion → pendiente
+       if (cotizacion.estado === 'pendiente_aprobacion') {
+         updateData.estado = 'pendiente';  // ✅ Cambia a pendiente
+         updateData.aprobado_por = usuarioId; // ID para referencia
+         updateData.aprobado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
+         updateData.fecha_aprobacion = new Date();
+         
+         // 🔧 LIMPIAR CAMPOS DE RECHAZO ANTERIOR SI EXISTÍAN
+         updateData.rechazado_por = null;
+         updateData.rechazado_por_nombre = null; // 🆕 Limpiar nombre también
+         updateData.fecha_rechazo = null;
+       } else {
+         updateData.estado = cotizacion.estado;
+       }
+       break;
+
+     case 'rechazado':
+       // SuperUsuario rechaza: pendiente_aprobacion → rechazada
+       if (cotizacion.estado === 'pendiente_aprobacion') {
+         updateData.estado = 'rechazada';  // ✅ Cambia a rechazada
+         updateData.rechazado_por = usuarioId; // ID para referencia
+         updateData.rechazado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
+         updateData.fecha_rechazo = new Date();
+         if (motivo_rechazo && motivo_rechazo.trim()) {
+           updateData.comentario = motivo_rechazo.trim();
+         }
+         
+         // 🔧 LIMPIAR CAMPOS DE APROBACIÓN ANTERIOR SI EXISTÍAN
+         updateData.aprobado_por = null;
+         updateData.aprobado_por_nombre = null; // 🆕 Limpiar nombre también
+         updateData.fecha_aprobacion = null;
+       } else if (cotizacion.estado === 'pendiente') {
+         // También permitir cancelar desde pendiente
+         updateData.estado = 'rechazada';  // ✅ Cambia a rechazada
+         updateData.rechazado_por = usuarioId; // ID para referencia
+         updateData.rechazado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
+         updateData.fecha_rechazo = new Date();
+         if (motivo_rechazo && motivo_rechazo.trim()) {
+           updateData.comentario = motivo_rechazo.trim();
+         }
+         
+         // 🔧 LIMPIAR CAMPOS DE APROBACIÓN ANTERIOR SI EXISTÍAN
+         updateData.aprobado_por = null;
+         updateData.aprobado_por_nombre = null; // 🆕 Limpiar nombre también
+         updateData.fecha_aprobacion = null;
+       } else {
+         updateData.estado = cotizacion.estado;
+       }
+       break;
+
+     case 'efectiva':
+       // Cliente acepta: pendiente → efectiva
+       if (cotizacion.estado === 'pendiente') {
+         updateData.estado = 'efectiva';  // ✅ Cambia a efectiva
+         updateData.aprobado_por = usuarioId; // ID para referencia
+         updateData.aprobado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
+         updateData.fecha_aprobacion = new Date();
+         
+         // 🔧 LIMPIAR CAMPOS DE RECHAZO ANTERIOR SI EXISTÍAN
+         updateData.rechazado_por = null;
+         updateData.rechazado_por_nombre = null; // 🆕 Limpiar nombre también
+         updateData.fecha_rechazo = null;
+       } else {
+         updateData.estado = cotizacion.estado;
+       }
+       break;
+
+     case 'rechazada':
+       // Cambio directo a rechazada (para casos específicos)
+       updateData.estado = 'rechazada';  // ✅ Directo a rechazada
+       updateData.rechazado_por = usuarioId; // ID para referencia
+       updateData.rechazado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
+       updateData.fecha_rechazo = new Date();
+       if (motivo_rechazo && motivo_rechazo.trim()) {
+         updateData.comentario = motivo_rechazo.trim();
+       }
+       
+       // 🔧 LIMPIAR CAMPOS DE APROBACIÓN ANTERIOR SI EXISTÍAN
+       updateData.aprobado_por = null;
+       updateData.aprobado_por_nombre = null; // 🆕 Limpiar nombre también
+       updateData.fecha_aprobacion = null;
+       break;
+
+     case 'pendiente':
+       // Cambio directo a pendiente
+       updateData.estado = 'pendiente';  // ✅ Directo a pendiente
+       break;
+
+     case 'pendiente_aprobacion':
+       // Cambio directo a pendiente_aprobacion
+       updateData.estado = 'pendiente_aprobacion';  // ✅ Directo a pendiente_aprobacion
+       break;
+
+     default:
+       updateData.estado = cotizacion.estado;
+       break;
+   }
+
+   console.log('🔍 Debug - Update Data:', updateData);
+
+   // Actualizar la cotización en la base de datos
+   const result = await cotizacion.update(updateData);
+
+   console.log('🔍 Debug - Cotización actualizada:', result.toJSON());
+
+   // ✅ Mensajes personalizados según la acción realizada
+   let mensaje = '';
+   const estadoAnterior = cotizacion.estado;
+   const estadoNuevo = updateData.estado;
+
+   if (estado === 'aprobado' && estadoAnterior === 'pendiente_aprobacion' && estadoNuevo === 'pendiente') {
+     mensaje = 'Cotización aprobada exitosamente. Ahora está pendiente de respuesta del cliente.';
+   } else if (estado === 'rechazado' && estadoAnterior === 'pendiente_aprobacion' && estadoNuevo === 'rechazada') {
+     mensaje = 'Cotización rechazada exitosamente.';
+   } else if (estado === 'rechazado' && estadoAnterior === 'pendiente' && estadoNuevo === 'rechazada') {
+     mensaje = 'Cotización cancelada exitosamente.';
+   } else if (estado === 'efectiva' && estadoAnterior === 'pendiente' && estadoNuevo === 'efectiva') {
+     mensaje = 'Cotización marcada como efectiva exitosamente.';
+   } else if (estadoAnterior !== estadoNuevo) {
+     mensaje = `Estado cambiado de ${estadoAnterior} a ${estadoNuevo} exitosamente.`;
+   } else {
+     mensaje = 'Estado actualizado exitosamente.';
+   }
+
+   res.json({
+     success: true,
+     message: mensaje,
+     cotizacion: {
+       id: cotizacion.cotizaciones_id,
+       estadoAnterior: estadoAnterior,
+       estadoNuevo: estadoNuevo,
+       // 🆕 INFORMACIÓN DE AUDITORÍA CON NOMBRES Y IDS
+       auditoria: {
+         aprobadoPor: updateData.aprobado_por ? {
+           id: updateData.aprobado_por,
+           nombre: updateData.aprobado_por_nombre
+         } : null,
+         fechaAprobacion: updateData.fecha_aprobacion,
+         rechazadoPor: updateData.rechazado_por ? {
+           id: updateData.rechazado_por,
+           nombre: updateData.rechazado_por_nombre
+         } : null,
+         fechaRechazo: updateData.fecha_rechazo
+       },
+       comentario: updateData.comentario
+     }
+   });
+
+ } catch (error) {
+   console.error('Error al cambiar estado:', error);
+   
+   res.status(500).json({
+     success: false,
+     message: 'Error interno del servidor',
+     error: process.env.NODE_ENV === 'development' ? error.message : undefined
+   });
+ }
+}
+// Método nuevo en cotizacionController.js
+async getCotizacionesPendientesAprobacion(req, res) {
+  try {
+    const {
+      page = 1,
+      limit = 25,
+      search = ''
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let whereConditions = {
+      estado: 'pendiente_aprobacion'
+    };
+    
+    // Filtro de búsqueda
+    if (search) {
+      const searchConditions = {
+        [Op.or]: [
+          { '$cliente.nombre_empresa$': { [Op.like]: `%${search}%` } },
+          { '$cliente.nombre_encargado$': { [Op.like]: `%${search}%` } },
+          { '$vendedor.nombre_completo$': { [Op.like]: `%${search}%` } }
+        ]
       };
-
-      // Si se rechaza y hay motivo, guardarlo en comentario
-      if (estado === 'rechazada' && motivo_rechazo) {
-        updateData.comentario = motivo_rechazo;
-      }
-
-      await cotizacion.update(updateData);
-
-      res.json({
-        success: true,
-        message: `Cotización ${estado} exitosamente`
-      });
-
-    } catch (error) {
-      console.error('Error al cambiar estado:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
+      whereConditions = { ...whereConditions, ...searchConditions };
     }
+
+    const { count, rows: cotizaciones } = await Cotizacion.findAndCountAll({
+      where: whereConditions,
+      include: [
+        {
+          model: Cliente,
+          as: 'cliente',
+          required: true
+        },
+        {
+          model: Usuario,
+          as: 'vendedor',
+          required: true,
+          attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+        },
+        {
+          model: CotizacionDetalle,
+          as: 'detalles',
+          include: [
+            {
+              model: Servicio,
+              as: 'servicio',
+              include: [
+                {
+                  model: Categoria,
+                  as: 'categoria'
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      order: [['fecha_creacion', 'ASC']], // Las más antiguas primero
+      limit: parseInt(limit),
+      offset: offset,
+      distinct: true
+    });
+
+    // Formatear datos igual que getCotizaciones pero con prioridad
+    const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
+      const serviciosDetalles = cotizacion.detalles.map(detalle => ({
+        id: detalle.servicios_id,
+        nombre: detalle.servicio.nombre,
+        descripcion: detalle.servicio.descripcion,
+        categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
+        cantidadEquipos: detalle.cantidad_equipos || 0,
+        cantidadServicios: detalle.cantidad_servicios || 0,
+        cantidadGB: detalle.cantidad_gb || 0,
+        cantidadAnos: detalle.cantidad_anos || 1,
+        precioUsado: parseFloat(detalle.precio_usado),
+        subtotal: parseFloat(detalle.subtotal),
+        // Agregar precios de referencia para comparación
+        precioMinimo: parseFloat(detalle.servicio.precio_minimo),
+        precioRecomendado: parseFloat(detalle.servicio.precio_recomendado)
+      }));
+
+      return {
+        id: cotizacion.cotizaciones_id,
+        cliente: {
+          nombre: cotizacion.cliente.nombre_empresa,
+          encargado: cotizacion.cliente.nombre_encargado,
+          email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado'
+        },
+        serviciosDetalles: serviciosDetalles,
+        fechaCreacion: cotizacion.fecha_creacion,
+        vendedor: {
+          nombre: cotizacion.vendedor.nombre_completo,
+          rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
+        },
+        estado: cotizacion.estado,
+        total: parseFloat(cotizacion.total),
+        comentario: cotizacion.comentario,
+        // Indicador de urgencia (días esperando aprobación)
+        diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24))
+      };
+    });
+
+    const totalPages = Math.ceil(count / parseInt(limit));
+    const pagination = {
+      currentPage: parseInt(page),
+      totalPages: totalPages,
+      totalItems: count,
+      itemsPerPage: parseInt(limit),
+      hasNextPage: parseInt(page) < totalPages,
+      hasPrevPage: parseInt(page) > 1
+    };
+
+    res.json({
+      success: true,
+      cotizaciones: cotizacionesFormateadas,
+      pagination: pagination
+    });
+
+  } catch (error) {
+    console.error('Error al obtener cotizaciones pendientes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
   }
+}
+
+// Método nuevo en cotizacionController.js
+// Método getEstadisticasSuper completo con cambios aplicados
+async getEstadisticasSuper(req, res) { 
+  try {
+    // Estadísticas generales
+    const estadisticasEstado = await Cotizacion.findAll({
+      attributes: [
+        'estado',
+        [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
+      ],
+      group: ['estado']
+    });
+
+    // Cotizaciones pendientes de aprobación con urgencia
+    const pendientesAprobacion = await Cotizacion.findAll({
+      where: { estado: 'pendiente_aprobacion' },
+      attributes: [
+        'cotizaciones_id',
+        'fecha_creacion',
+        [Cotizacion.sequelize.literal('DATEDIFF(NOW(), fecha_creacion)'), 'dias_espera']
+      ],
+      order: [['fecha_creacion', 'ASC']]
+    });
+
+    // Formatear estadísticas
+    const stats = {
+      total: 0,
+      pendientesAprobacion: 0,
+      pendientes: 0,
+      aprobadas: 0,
+      rechazadas: 0,
+      urgentes: 0 // Más de 3 días esperando aprobación
+    };
+
+    estadisticasEstado.forEach(stat => {
+      const cantidad = parseInt(stat.dataValues.cantidad);
+      stats.total += cantidad;
+
+      // 🔧 CAMBIO 3: Estados corregidos para coincidir con la BD
+      switch (stat.estado) {
+        case 'pendiente_aprobacion':
+          stats.pendientesAprobacion = cantidad;
+          break;
+        case 'pendiente':
+          stats.pendientes = cantidad;
+          break;
+        case 'efectiva':
+          stats.aprobadas = cantidad;
+          break;
+        case 'rechazada':
+          stats.rechazadas = cantidad;
+          break;
+      }
+    });
+
+    // Contar urgentes (más de 3 días)
+    stats.urgentes = pendientesAprobacion.filter(p => p.dataValues.dias_espera > 3).length;
+
+    res.json({
+      success: true,
+      estadisticas: stats,
+      pendientesDetalle: pendientesAprobacion.map(p => ({
+        id: p.cotizaciones_id,
+        diasEspera: p.dataValues.dias_espera
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error al obtener estadísticas super:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
+  }
+}
 
   // Obtener lista de vendedores únicos
   async getVendedores(req, res) {

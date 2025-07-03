@@ -66,11 +66,40 @@ const Cotizacion = sequelize.define('Cotizacion', {
   tipo_precio_pdf: {
     type: DataTypes.ENUM('minimo', 'venta'),
     defaultValue: 'venta'
-  }
-  // ❌ ELIMINÉ ESTOS 3 CAMPOS que no existen en la BD:
-  // motivo_rechazo
-  // aprobado_por  
-  // fecha_aprobacion
+  },
+  // 🆕 CAMPOS DE AUDITORÍA
+  aprobado_por: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'usuarios',
+      key: 'usuarios_id'
+    }
+  },
+  fecha_aprobacion: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  rechazado_por: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'usuarios',
+      key: 'usuarios_id'
+    }
+  },
+  fecha_rechazo: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  aprobado_por_nombre: {
+  type: DataTypes.STRING(255),
+  allowNull: true
+},
+rechazado_por_nombre: {
+  type: DataTypes.STRING(255),
+  allowNull: true
+}
 }, {
   tableName: 'cotizaciones',
   timestamps: true,
