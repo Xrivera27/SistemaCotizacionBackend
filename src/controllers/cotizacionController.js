@@ -542,7 +542,7 @@ class CotizacionController {
            .text('www.empresaservicios.com', 50, 110);
 
         // Marca de documento (COPIA/ORIGINAL)
-        const marcaTexto = tipo === 'copia' ? 'COPIA' : 'ORIGINAL';
+        const marcaTexto = tipo === 'copia' ? 'COPIA' : '';
         doc.fontSize(14)
            .fillColor(accentColor)
            .text(marcaTexto, 450, 50, { width: 100, align: 'right' });

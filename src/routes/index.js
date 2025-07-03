@@ -6,9 +6,11 @@ const clientesRoutes = require('./clientes');
 const categoriasRoutes = require('./categorias'); 
 const serviciosRoutes = require('./servicios');
 const cotizacionesRoutes = require('./cotizaciones');
-const cotizacionesVendedorRoutes = require('./cotizacionesVendedor'); // Descomentar
-const pdfRoutes = require('./pdf'); // Descomentar
+const cotizacionesVendedorRoutes = require('./cotizacionesVendedor');
+const pdfRoutes = require('./pdf');
 const configuracionRoutes = require('./configuracion');
+const dashboardRoutes = require('./dashboard'); 
+const reportesRoutes = require('./reportes'); 
 
 const router = express.Router();
 
@@ -19,9 +21,13 @@ router.use('/clientes', clientesRoutes);
 router.use('/categorias', categoriasRoutes); 
 router.use('/servicios', serviciosRoutes);
 router.use('/cotizaciones', cotizacionesRoutes);
-router.use('/cotizaciones-vendedor', cotizacionesVendedorRoutes); // Descomentar
-router.use('/pdf', pdfRoutes); // Descomentar
+router.use('/cotizaciones-vendedor', cotizacionesVendedorRoutes); 
+router.use('/pdf', pdfRoutes); 
 router.use('/configuracion', configuracionRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/reportes', reportesRoutes); 
+
+
 
 // Ruta de salud del API
 router.get('/health', (req, res) => {

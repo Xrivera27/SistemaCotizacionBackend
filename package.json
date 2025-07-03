@@ -23,6 +23,7 @@
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",
     "pdfkit": "^0.17.1",
+    "puppeteer": "^24.11.2",
     "sequelize": "^6.37.7",
     "uuid": "^11.1.0"
   },
