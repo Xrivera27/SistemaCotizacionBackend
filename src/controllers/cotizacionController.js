@@ -271,103 +271,136 @@ class CotizacionController {
     }
   }
 
-  // Obtener una cotización específica
-  async getCotizacionById(req, res) {
-    try {
-      const { id } = req.params;
+// En cotizacionController.js - método getCotizacionById
+async getCotizacionById(req, res) {
+  try {
+    const { id } = req.params;
 
-      const cotizacion = await Cotizacion.findByPk(id, {
-        include: [
-          {
-            model: Cliente,
-            as: 'cliente'
-          },
-          {
-            model: Usuario,
-            as: 'vendedor',
-            attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
-          },
-          {
-            model: CotizacionDetalle,
-            as: 'detalles',
-            include: [
-              {
-                model: Servicio,
-                as: 'servicio',
-                include: [
-                  {
-                    model: Categoria,
-                    as: 'categoria'
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      });
-
-      if (!cotizacion) {
-        return res.status(404).json({
-          success: false,
-          message: 'Cotización no encontrada'
-        });
-      }
-
-      // Formatear datos para el frontend
-      const cotizacionFormateada = {
-        id: cotizacion.cotizaciones_id,
-        cliente: {
-          nombre: cotizacion.cliente.nombre_empresa,
-          email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado',
-          encargado: cotizacion.cliente.nombre_encargado,
-          telefono: cotizacion.cliente.telefono_empresa,
-          documentoFiscal: cotizacion.cliente.documento_fiscal
+    const cotizacion = await Cotizacion.findByPk(id, {
+      include: [
+        {
+          model: Cliente,
+          as: 'cliente'
         },
-        servicios: cotizacion.detalles.map(detalle => ({
-          id: detalle.servicios_id,
-          nombre: detalle.servicio.nombre,
-          descripcion: detalle.servicio.descripcion,
-          categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
-          cantidadEquipos: detalle.cantidad_equipos,
-          cantidadServicios: detalle.cantidad_servicios,
-          cantidadGB: detalle.cantidad_gb,
-          cantidadAnos: detalle.cantidad_anos || 1,  // 🆕 INCLUIR AÑOS
-          precioUsado: parseFloat(detalle.precio_usado),
-          subtotal: parseFloat(detalle.subtotal)
-        })),
-        fechaCreacion: cotizacion.fecha_creacion,
-        vendedor: {
-          nombre: cotizacion.vendedor.nombre_completo,
-          rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
+        {
+          model: Usuario,
+          as: 'vendedor',
+          attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
         },
-        estado: cotizacion.estado,
-        total: parseFloat(cotizacion.total),
-        pdfGenerado: cotizacion.pdf_generado,
-        comentario: cotizacion.comentario,
-        configuracionPDF: {
-          incluirNombreEncargado: cotizacion.incluir_nombre_encargado,
-          incluirNombreEmpresa: cotizacion.incluir_nombre_empresa,
-          incluirDocumentoFiscal: cotizacion.incluir_documento_fiscal,
-          incluirTelefonoEmpresa: cotizacion.incluir_telefono_empresa,
-          incluirCorreoEmpresa: cotizacion.incluir_correo_empresa,
-          tipoPrecioPDF: cotizacion.tipo_precio_pdf
+        {
+          model: CotizacionDetalle,
+          as: 'detalles',
+          include: [
+            {
+              model: Servicio,
+              as: 'servicio',
+              include: [
+                {
+                  model: Categoria,
+                  as: 'categoria'
+                }
+              ]
+            }
+          ]
         }
-      };
+      ]
+    });
 
-      res.json({
-        success: true,
-        cotizacion: cotizacionFormateada
-      });
-
-    } catch (error) {
-      console.error('Error al obtener cotización:', error);
-      res.status(500).json({
+    if (!cotizacion) {
+      return res.status(404).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: error.message
+        message: 'Cotización no encontrada'
       });
     }
+
+    // 🆕 BUSCAR INFORMACIÓN DE AUDITORÍA
+    let usuarioAprobador = null;
+    let usuarioRechazador = null;
+
+    if (cotizacion.aprobado_por) {
+      usuarioAprobador = await Usuario.findByPk(cotizacion.aprobado_por, {
+        attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+      });
+    }
+
+    if (cotizacion.rechazado_por) {
+      usuarioRechazador = await Usuario.findByPk(cotizacion.rechazado_por, {
+        attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+      });
+    }
+
+    // Formatear datos para el frontend
+    const cotizacionFormateada = {
+      id: cotizacion.cotizaciones_id,
+      cliente: {
+        nombre: cotizacion.cliente.nombre_empresa,
+        email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado',
+        encargado: cotizacion.cliente.nombre_encargado,
+        telefono: cotizacion.cliente.telefono_empresa,
+        documentoFiscal: cotizacion.cliente.documento_fiscal
+      },
+      servicios: cotizacion.detalles.map(detalle => ({
+        id: detalle.servicios_id,
+        nombre: detalle.servicio.nombre,
+        descripcion: detalle.servicio.descripcion,
+        categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
+        cantidadEquipos: detalle.cantidad_equipos,
+        cantidadServicios: detalle.cantidad_servicios,
+        cantidadGB: detalle.cantidad_gb,
+        cantidadAnos: detalle.cantidad_anos || 1,
+        precioUsado: parseFloat(detalle.precio_usado),
+        subtotal: parseFloat(detalle.subtotal)
+      })),
+      fechaCreacion: cotizacion.fecha_creacion,
+      vendedor: {
+        nombre: cotizacion.vendedor.nombre_completo,
+        rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
+      },
+      estado: cotizacion.estado,
+      total: parseFloat(cotizacion.total),
+      pdfGenerado: cotizacion.pdf_generado,
+      comentario: cotizacion.comentario,
+      configuracionPDF: {
+        incluirNombreEncargado: cotizacion.incluir_nombre_encargado,
+        incluirNombreEmpresa: cotizacion.incluir_nombre_empresa,
+        incluirDocumentoFiscal: cotizacion.incluir_documento_fiscal,
+        incluirTelefonoEmpresa: cotizacion.incluir_telefono_empresa,
+        incluirCorreoEmpresa: cotizacion.incluir_correo_empresa,
+        tipoPrecioPDF: cotizacion.tipo_precio_pdf
+      },
+      // 🆕 INFORMACIÓN DE AUDITORÍA
+      auditoria: {
+        aprobadoPor: usuarioAprobador ? {
+          id: usuarioAprobador.usuarios_id,
+          nombre: usuarioAprobador.nombre_completo,
+          rol: CotizacionController.formatearRol(usuarioAprobador.tipo_usuario)
+        } : null,
+        aprobadoPorNombre: cotizacion.aprobado_por_nombre, // Del campo directo
+        fechaAprobacion: cotizacion.fecha_aprobacion,
+        rechazadoPor: usuarioRechazador ? {
+          id: usuarioRechazador.usuarios_id,
+          nombre: usuarioRechazador.nombre_completo,
+          rol: CotizacionController.formatearRol(usuarioRechazador.tipo_usuario)
+        } : null,
+        rechazadoPorNombre: cotizacion.rechazado_por_nombre, // Del campo directo
+        fechaRechazo: cotizacion.fecha_rechazo
+      }
+    };
+
+    res.json({
+      success: true,
+      cotizacion: cotizacionFormateada
+    });
+
+  } catch (error) {
+    console.error('Error al obtener cotización:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message
+    });
   }
+}
 
   // Generar PDF de cotización
   async generarPDF(req, res) {
