@@ -241,11 +241,30 @@ const requireAnyRole = (req, res, next) => {
   next();
 };
 
+const requireSuperUsuario = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'No autenticado'
+    });
+  }
+  
+  if (req.user.tipo_usuario !== 'super_usuario') {
+    return res.status(403).json({
+      success: false,
+      message: 'Solo supervisores pueden realizar esta acción'
+    });
+  }
+  
+  next();
+};
+
 module.exports = {
   // Middlewares originales
   requireAdmin,
   requireAdminOrSuper,
   requireOwnerOrAdmin,
+  requireSuperUsuario,
   
   // Nuevos middlewares
   authenticateToken,
