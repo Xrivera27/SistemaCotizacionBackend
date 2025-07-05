@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
-const superDashboardController = require('../controllers/superDashboardController'); // NUEVO
+const superDashboardController = require('../controllers/superDashboardController');
+const vendedorDashboardController = require('../controllers/vendedorDashboardController');
 const { 
   authenticateToken, 
   requireAdmin, 
@@ -66,7 +67,35 @@ router.get('/super-usuario/all-data',
   superDashboardController.getAllDashboardData
 );
 
-// === RUTAS FUTURAS PARA VENDEDOR ===
-// TODO: router.get('/vendedor/stats', requireVendedor, dashboardController.getVendedorStats);
+// === RUTAS PARA DASHBOARD VENDEDOR === (agregar después de las rutas de super usuario)
+router.get('/vendedor/stats', 
+  authorizeRoles(['vendedor']), 
+  vendedorDashboardController.getVendedorStats
+);
+
+router.get('/vendedor/ventas-chart', 
+  authorizeRoles(['vendedor']), 
+  vendedorDashboardController.getVentasChart
+);
+
+router.get('/vendedor/estados-chart', 
+  authorizeRoles(['vendedor']), 
+  vendedorDashboardController.getEstadosChart
+);
+
+router.get('/vendedor/resumen-ventas', 
+  authorizeRoles(['vendedor']), 
+  vendedorDashboardController.getResumenVentas
+);
+
+router.get('/vendedor/cotizaciones-recientes', 
+  authorizeRoles(['vendedor']), 
+  vendedorDashboardController.getCotizacionesRecientes
+);
+
+router.get('/vendedor/all-data', 
+  authorizeRoles(['vendedor']), 
+  vendedorDashboardController.getAllDashboardData
+);
 
 module.exports = router;
