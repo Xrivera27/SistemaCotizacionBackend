@@ -1,8 +1,7 @@
 const express = require('express');
 const { authenticateToken } = require('../middlewares/auth');
 const { authorizeRoles } = require('../middlewares/authorization');
-const VendedorCotizacionController = require('../controllers/vendedorCotizacionController');
-
+const VendedorCotizacionController = require('../controllers/VendedorCotizacionController');
 const router = express.Router();
 const vendedorCotizacionController = new VendedorCotizacionController();
 
