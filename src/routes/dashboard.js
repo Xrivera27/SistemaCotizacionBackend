@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
 const superDashboardController = require('../controllers/superDashboardController');
-const vendedorDashboardController = require('../controllers/vendedorDashboardController');
+const vendedorDashboardController = require('../controllers/VendedorDashboardController');
 const { 
   authenticateToken, 
   requireAdmin, 
