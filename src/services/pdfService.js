@@ -449,14 +449,15 @@ class PDFService {
   }
   
   // Métodos auxiliares
-  formatearMoneda(valor) {
-    if (!valor && valor !== 0) return 'L. 0.00';
-    return new Intl.NumberFormat('es-HN', {
-      style: 'currency',
-      currency: 'HNL',
-      minimumFractionDigits: 2
-    }).format(valor);
-  }
+  // REEMPLAZAR el método formatearMoneda:
+formatearMoneda(valor) {
+  if (!valor && valor !== 0) return '$0.00';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2
+  }).format(valor);
+}
   
   formatearFecha(fecha) {
     if (!fecha) return '';
