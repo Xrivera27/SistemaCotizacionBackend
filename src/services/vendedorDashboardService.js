@@ -233,7 +233,7 @@ class VendedorDashboardService {
 
       return results.map(cotizacion => ({
         id: cotizacion.cotizaciones_id,
-        codigo: `COT-${new Date().getFullYear()}-${String(cotizacion.cotizaciones_id).padStart(3, '0')}`,
+        codigo: `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`,
         cliente: cotizacion.nombre_empresa || 'Cliente no especificado',
         monto: parseFloat(cotizacion.total),
         fechaCreacion: cotizacion.created_at,

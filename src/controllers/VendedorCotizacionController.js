@@ -518,7 +518,6 @@ class VendedorCotizacionController {
     }
   }
 
-// En VendedorCotizacionController.js - método duplicarCotizacion
 async duplicarCotizacion(req, res) {
   try {
     const { id } = req.params;
@@ -582,39 +581,16 @@ async duplicarCotizacion(req, res) {
         documentoFiscal: cotizacionOriginal.cliente.documento_fiscal
       },
       
-      // ✅ SERVICIOS CON CÁLCULO CORREGIDO USANDO SUBTOTAL
+      // ✅ SERVICIOS CON DATOS DIRECTOS (SIN CÁLCULOS COMPLEJOS)
       servicios: cotizacionOriginal.detalles.map(detalle => {
-        console.log('📝 Procesando detalle:', {
+        console.log('📝 Procesando detalle (datos directos):', {
           servicio: detalle.servicio.nombre,
-          precio_usado: detalle.precio_usado,
-          subtotal: detalle.subtotal,
           cantidad_equipos: detalle.cantidad_equipos,
-          cantidad_anos: detalle.cantidad_anos
-        });
-
-        // ✅ CORRECCIÓN: Usar subtotal para calcular precio por equipo
-        const subtotalOriginal = parseFloat(detalle.subtotal);
-        const precioUnitarioOriginal = parseFloat(detalle.precio_usado); // Este es el precio unitario que puso el vendedor
-        const cantidadEquipos = detalle.cantidad_equipos || 1;
-        const cantidadAnos = detalle.cantidad_anos || 1;
-        const precioMinimo = parseFloat(detalle.servicio.precio_minimo);
-        const precioRecomendado = parseFloat(detalle.servicio.precio_recomendado);
-        
-        // Calcular precio por equipo para el formulario
-        // subtotal = precio_usado × cantidad_equipos × cantidad_anos
-        // Por lo tanto: precio_por_equipo = subtotal / (cantidad_equipos × cantidad_anos)
-        const totalUnidades = cantidadEquipos * cantidadAnos;
-        const precioPorEquipo = totalUnidades > 0 
-          ? subtotalOriginal / totalUnidades 
-          : precioUnitarioOriginal;
-
-        console.log('💰 Cálculo de precio:', {
-          subtotal: subtotalOriginal,
-          cantidadEquipos: cantidadEquipos,
-          cantidadAnos: cantidadAnos,
-          totalUnidades: totalUnidades,
-          precioPorEquipo: precioPorEquipo,
-          formula: `${subtotalOriginal} / (${cantidadEquipos} × ${cantidadAnos}) = ${precioPorEquipo}`
+          cantidad_servicios: detalle.cantidad_servicios,
+          cantidad_gb: detalle.cantidad_gb,
+          cantidad_anos: detalle.cantidad_anos,
+          precio_usado: detalle.precio_usado, // ✅ Precio unitario original
+          subtotal: detalle.subtotal
         });
 
         return {
@@ -623,18 +599,17 @@ async duplicarCotizacion(req, res) {
           descripcion: detalle.servicio.descripcion,
           categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
           
-          // Cantidades originales
+          // ✅ CANTIDADES ORIGINALES (tal como están en la base de datos)
           cantidadEquipos: detalle.cantidad_equipos || 0,
           cantidadServicios: detalle.cantidad_servicios || 0,
           cantidadGB: detalle.cantidad_gb || 0,
           cantidadAnos: detalle.cantidad_anos || 1,
           
-          // Precios - INFORMACIÓN COMPLETA
-          precioMinimo: precioMinimo,
-          precioRecomendado: precioRecomendado,
-          precioUnitarioOriginal: precioUnitarioOriginal, // Precio unitario que puso el vendedor originalmente
-          subtotalOriginal: subtotalOriginal, // Total que se cobró (precio_usado × cantidad_equipos × cantidad_anos)
-          precioPorEquipo: precioPorEquipo // Precio calculado por equipo para precargar en el formulario
+          // ✅ PRECIOS DIRECTOS (tal como están en la base de datos)
+          precioMinimo: parseFloat(detalle.servicio.precio_minimo),
+          precioRecomendado: parseFloat(detalle.servicio.precio_recomendado),
+          precioUsadoOriginal: parseFloat(detalle.precio_usado), // ✅ Precio unitario que usó el vendedor
+          subtotalOriginal: parseFloat(detalle.subtotal) // ✅ Total que se cobró
         };
       }),
       
@@ -657,8 +632,18 @@ async duplicarCotizacion(req, res) {
       }
     };
 
-    console.log('✅ Datos para duplicar preparados correctamente');
+    console.log('✅ Datos para duplicar preparados correctamente (con datos directos)');
     console.log('📋 Servicios procesados:', datosParaDuplicar.servicios.length);
+    
+    // ✅ Log de ejemplo para verificar los datos
+    if (datosParaDuplicar.servicios.length > 0) {
+      console.log('🔍 Ejemplo de servicio procesado:', {
+        nombre: datosParaDuplicar.servicios[0].nombre,
+        cantidadGB: datosParaDuplicar.servicios[0].cantidadGB,
+        precioUsadoOriginal: datosParaDuplicar.servicios[0].precioUsadoOriginal,
+        subtotalOriginal: datosParaDuplicar.servicios[0].subtotalOriginal
+      });
+    }
 
     res.json({
       success: true,
