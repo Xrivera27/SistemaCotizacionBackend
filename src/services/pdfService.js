@@ -6,10 +6,11 @@ class PDFService {
     try {
       console.log('📄 Generando PDF para reporte:', tipoReporte);
       
-      // Crear documento PDF
+      // Crear documento PDF con mejor configuración
       const doc = new PDFDocument({ 
-        margin: 50,
-        size: 'A4'
+        margin: 40,
+        size: 'A4',
+        bufferPages: true
       });
       
       // Buffer para almacenar el PDF
@@ -79,20 +80,20 @@ class PDFService {
     });
     
     // Título principal
-    doc.fontSize(20)
+    doc.fontSize(24)
        .font('Helvetica-Bold')
        .text('Sistema de Cotizaciones', { align: 'center' });
     
-    doc.moveDown(0.5);
+    doc.moveDown(0.3);
     
     // Subtítulo
-    doc.fontSize(16)
+    doc.fontSize(18)
        .text(`Reporte de ${this.getTipoNombre(tipo)}`, { align: 'center' });
     
-    doc.moveDown(0.5);
+    doc.moveDown(0.3);
     
     // Información del reporte
-    doc.fontSize(12)
+    doc.fontSize(11)
        .font('Helvetica')
        .text(`Fecha de generación: ${fechaActual}`, { align: 'center' });
     
@@ -100,23 +101,20 @@ class PDFService {
     doc.text(`Período: ${periodo}`, { align: 'center' });
     
     // Línea separadora
-    doc.moveDown(1);
+    doc.moveDown(0.8);
+    const currentY = doc.y;
     doc.strokeColor('#3498db')
-       .lineWidth(2)
-       .moveTo(50, doc.y)
-       .lineTo(550, doc.y)
+       .lineWidth(3)
+       .moveTo(40, currentY)
+       .lineTo(555, currentY)
        .stroke();
     
     doc.moveDown(1);
   }
   
   generarPDFCotizaciones(doc, datos) {
-    // Resumen en rectángulos
+    // Resumen en rectángulos compactos
     const startY = doc.y;
-    const boxWidth = 120;
-    const boxHeight = 60;
-    const spacing = 10;
-    
     const resumenes = [
       { label: 'Total Cotizaciones', valor: datos.totalCotizaciones || 0, color: '#3498db' },
       { label: 'Efectivas', valor: datos.cotizacionesEfectivas || 0, color: '#27ae60' },
@@ -124,232 +122,304 @@ class PDFService {
       { label: 'Canceladas', valor: datos.cotizacionesCanceladas || 0, color: '#e74c3c' }
     ];
     
+    // Dibujar resumen en una fila
+    const boxWidth = 120;
+    const boxHeight = 50;
+    const spacing = 8;
+    const totalWidth = (boxWidth * 4) + (spacing * 3);
+    const startX = (555 - totalWidth) / 2 + 40; // Centrar
+    
     resumenes.forEach((item, index) => {
-      const x = 50 + (index % 4) * (boxWidth + spacing);
-      const y = startY + Math.floor(index / 4) * (boxHeight + spacing);
+      const x = startX + (index * (boxWidth + spacing));
       
-      // Rectángulo
-      doc.rect(x, y, boxWidth, boxHeight)
+      // Rectángulo con borde coloreado
+      doc.rect(x, startY, boxWidth, boxHeight)
          .strokeColor(item.color)
          .lineWidth(2)
          .stroke();
       
-      // Valor
-      doc.fontSize(16)
+      // Valor grande
+      doc.fontSize(18)
          .font('Helvetica-Bold')
          .fillColor(item.color)
-         .text(item.valor.toString(), x + 10, y + 10, { width: boxWidth - 20, align: 'center' });
+         .text(item.valor.toString(), x + 5, startY + 8, { 
+           width: boxWidth - 10, 
+           align: 'center' 
+         });
       
-      // Label
-      doc.fontSize(10)
+      // Label pequeño
+      doc.fontSize(9)
          .font('Helvetica')
          .fillColor('#000')
-         .text(item.label, x + 10, y + 35, { width: boxWidth - 20, align: 'center' });
+         .text(item.label, x + 5, startY + 32, { 
+           width: boxWidth - 10, 
+           align: 'center' 
+         });
     });
     
-    doc.moveDown(3);
+    doc.y = startY + boxHeight + 20;
     
-    // Ingresos totales (más grande)
+    // Ingresos totales destacado
     if (datos.ingresosTotales) {
-      doc.fontSize(14)
+      doc.fontSize(16)
          .font('Helvetica-Bold')
-         .text(`Ingresos Totales: ${this.formatearMoneda(datos.ingresosTotales)}`, { align: 'center' });
-      doc.moveDown(1);
+         .fillColor('#8e44ad')
+         .text(`Ingresos Totales: ${this.formatearMoneda(datos.ingresosTotales)}`, { 
+           align: 'center' 
+         });
+      doc.moveDown(0.8);
     }
     
-    // Tabla de cotizaciones
+    // Tabla de cotizaciones mejorada
     if (datos.detalleCotizaciones && datos.detalleCotizaciones.length > 0) {
-      doc.fontSize(14)
+      doc.fontSize(16)
          .font('Helvetica-Bold')
-         .text('Detalle de Cotizaciones', { align: 'left' });
+         .fillColor('#000')
+         .text('Detalle de Cotizaciones');
       
       doc.moveDown(0.5);
       
-      this.generarTabla(doc, 
-        ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'],
-        datos.detalleCotizaciones.map(cot => [
-          `CT${String(cot.id).padStart(6, '0')}`,
-          cot.cliente.substring(0, 15) + (cot.cliente.length > 15 ? '...' : ''),
-          cot.vendedor.substring(0, 12) + (cot.vendedor.length > 12 ? '...' : ''),
-          this.formatearFecha(cot.fecha),
-          this.formatearMoneda(cot.total),
-          this.getEstadoTexto(cot.estado)
-        ])
-      );
+      // Configuración de tabla optimizada
+      const headers = ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'];
+      const colWidths = [60, 120, 100, 70, 80, 85]; // Anchos optimizados
+      
+      // Preparar datos limitando texto
+      const rows = datos.detalleCotizaciones.map(cot => [
+        `CT${String(cot.id).padStart(6, '0')}`,
+        this.truncarTexto(cot.cliente, 18),
+        this.truncarTexto(cot.vendedor, 15),
+        this.formatearFecha(cot.fecha),
+        this.formatearMoneda(cot.total),
+        this.truncarTexto(this.getEstadoTexto(cot.estado), 12)
+      ]);
+      
+      this.generarTablaMejorada(doc, headers, rows, colWidths);
     }
   }
   
   generarPDFVendedores(doc, datos) {
     if (!datos.rendimientoVendedores || datos.rendimientoVendedores.length === 0) {
-      doc.text('No hay datos de vendedores para mostrar', { align: 'center' });
+      doc.fontSize(14)
+         .text('No hay datos de vendedores para mostrar', { align: 'center' });
       return;
     }
     
-    doc.fontSize(14)
+    doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text('Rendimiento por Vendedor', { align: 'left' });
+       .text('Rendimiento por Vendedor');
     
     doc.moveDown(0.5);
     
-    this.generarTabla(doc,
-      ['Vendedor', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'],
-      datos.rendimientoVendedores.map(v => [
-        v.nombre.substring(0, 20),
-        v.cotizaciones.toString(),
-        v.efectivas.toString(),
-        `${v.conversion}%`,
-        this.formatearMoneda(v.ingresos)
-      ])
-    );
+    const headers = ['Vendedor', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'];
+    const colWidths = [140, 90, 80, 80, 100];
+    
+    const rows = datos.rendimientoVendedores.map(v => [
+      this.truncarTexto(v.nombre, 20),
+      v.cotizaciones.toString(),
+      v.efectivas.toString(),
+      `${v.conversion}%`,
+      this.formatearMoneda(v.ingresos)
+    ]);
+    
+    this.generarTablaMejorada(doc, headers, rows, colWidths);
   }
   
   generarPDFServicios(doc, datos) {
     if (!datos.rendimientoServicios || datos.rendimientoServicios.length === 0) {
-      doc.text('No hay datos de servicios para mostrar', { align: 'center' });
+      doc.fontSize(14)
+         .text('No hay datos de servicios para mostrar', { align: 'center' });
       return;
     }
     
-    doc.fontSize(14)
+    doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text('Rendimiento por Servicio', { align: 'left' });
+       .text('Rendimiento por Servicio');
     
     doc.moveDown(0.5);
     
-    this.generarTabla(doc,
-      ['Servicio', 'Categoría', 'Cotizaciones', 'Efectivas', 'Ingresos'],
-      datos.rendimientoServicios.map(s => [
-        s.nombre.substring(0, 25),
-        (s.categoria || 'Sin categoría').substring(0, 15),
-        s.cotizaciones.toString(),
-        s.efectivas.toString(),
-        this.formatearMoneda(s.ingresos)
-      ])
-    );
+    const headers = ['Servicio', 'Categoría', 'Cotizaciones', 'Efectivas', 'Ingresos'];
+    const colWidths = [150, 100, 80, 80, 100];
+    
+    const rows = datos.rendimientoServicios.map(s => [
+      this.truncarTexto(s.nombre, 22),
+      this.truncarTexto(s.categoria || 'Sin categoría', 15),
+      s.cotizaciones.toString(),
+      s.efectivas.toString(),
+      this.formatearMoneda(s.ingresos)
+    ]);
+    
+    this.generarTablaMejorada(doc, headers, rows, colWidths);
   }
   
   generarPDFClientes(doc, datos) {
     if (!datos.actividadClientes || datos.actividadClientes.length === 0) {
-      doc.text('No hay datos de clientes para mostrar', { align: 'center' });
+      doc.fontSize(14)
+         .text('No hay datos de clientes para mostrar', { align: 'center' });
       return;
     }
     
-    doc.fontSize(14)
+    doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text('Actividad por Cliente', { align: 'left' });
+       .text('Actividad por Cliente');
     
     doc.moveDown(0.5);
     
-    this.generarTabla(doc,
-      ['Cliente', 'Empresa', 'Cotizaciones', 'Total Facturado'],
-      datos.actividadClientes.map(c => [
-        c.nombreEncargado.substring(0, 20),
-        c.empresa.substring(0, 20),
-        c.totalCotizaciones.toString(),
-        this.formatearMoneda(c.totalFacturado)
-      ])
-    );
+    const headers = ['Cliente', 'Empresa', 'Cotizaciones', 'Total Facturado'];
+    const colWidths = [130, 150, 80, 100];
+    
+    const rows = datos.actividadClientes.map(c => [
+      this.truncarTexto(c.nombreEncargado, 18),
+      this.truncarTexto(c.empresa, 22),
+      c.totalCotizaciones.toString(),
+      this.formatearMoneda(c.totalFacturado)
+    ]);
+    
+    this.generarTablaMejorada(doc, headers, rows, colWidths);
   }
   
   generarPDFFinanciero(doc, datos) {
     if (!datos.financiero) {
-      doc.text('No hay datos financieros para mostrar', { align: 'center' });
+      doc.fontSize(14)
+         .text('No hay datos financieros para mostrar', { align: 'center' });
       return;
     }
     
-    // Resumen financiero
-    doc.fontSize(14)
+    // Resumen financiero en rectángulos
+    doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text('Resumen Financiero', { align: 'left' });
+       .text('Resumen Financiero');
     
     doc.moveDown(0.5);
     
-    doc.fontSize(12)
-       .font('Helvetica')
-       .text(`Ingresos Brutos: ${this.formatearMoneda(datos.financiero.ingresosBrutos)}`)
-       .text(`Promedio Mensual: ${this.formatearMoneda(datos.financiero.promedioMensual)}`)
-       .text(`Mejor Mes: ${datos.financiero.mejorMes || 'Sin datos'}`)
-       .text(`Crecimiento: ${datos.financiero.crecimiento || 0}%`);
+    const resumenItems = [
+      { label: 'Ingresos Brutos', valor: this.formatearMoneda(datos.financiero.ingresosBrutos) },
+      { label: 'Promedio Mensual', valor: this.formatearMoneda(datos.financiero.promedioMensual) },
+      { label: 'Mejor Mes', valor: datos.financiero.mejorMes || 'Sin datos' },
+      { label: 'Crecimiento', valor: `${datos.financiero.crecimiento || 0}%` }
+    ];
+    
+    // Mostrar resumen en formato de lista compacta
+    resumenItems.forEach(item => {
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
+         .text(`${item.label}: `, { continued: true })
+         .font('Helvetica')
+         .text(item.valor);
+    });
     
     doc.moveDown(1);
     
     // Tabla de detalles mensuales
     if (datos.financiero.detallesMensuales && datos.financiero.detallesMensuales.length > 0) {
-      doc.fontSize(14)
+      doc.fontSize(16)
          .font('Helvetica-Bold')
-         .text('Ingresos por Mes', { align: 'left' });
+         .text('Ingresos por Mes');
       
       doc.moveDown(0.5);
       
-      this.generarTabla(doc,
-        ['Mes', 'Cotizaciones', 'Efectivas', 'Ingresos', 'Crecimiento'],
-        datos.financiero.detallesMensuales.map(m => [
-          m.mes,
-          m.cotizaciones.toString(),
-          m.efectivas.toString(),
-          this.formatearMoneda(m.ingresos),
-          `${m.crecimiento > 0 ? '+' : ''}${m.crecimiento}%`
-        ])
-      );
+      const headers = ['Mes', 'Cotizaciones', 'Efectivas', 'Ingresos', 'Crecimiento'];
+      const colWidths = [80, 90, 80, 100, 90];
+      
+      const rows = datos.financiero.detallesMensuales.map(m => [
+        m.mes,
+        m.cotizaciones.toString(),
+        m.efectivas.toString(),
+        this.formatearMoneda(m.ingresos),
+        `${m.crecimiento > 0 ? '+' : ''}${m.crecimiento}%`
+      ]);
+      
+      this.generarTablaMejorada(doc, headers, rows, colWidths);
     }
   }
   
-  generarTabla(doc, headers, rows) {
-    const startX = 50;
-    const startY = doc.y;
-    const rowHeight = 20;
-    const colWidth = (550 - 50) / headers.length;
+  generarTablaMejorada(doc, headers, rows, colWidths) {
+    const startX = 40;
+    let currentY = doc.y;
+    const rowHeight = 25;
+    const headerHeight = 30;
+    const pageHeight = 750; // Límite para nueva página
     
     // Headers
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .fillColor('#fff');
+    doc.fontSize(11)
+       .font('Helvetica-Bold');
     
+    // Fondo azul para headers
+    doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), headerHeight)
+       .fillAndStroke('#3498db', '#3498db');
+    
+    // Texto de headers en blanco
+    doc.fillColor('#fff');
+    let x = startX;
     headers.forEach((header, i) => {
-      const x = startX + (i * colWidth);
-      // Fondo azul para headers
-      doc.rect(x, startY, colWidth, rowHeight)
-         .fillAndStroke('#3498db', '#3498db');
-      
-      doc.text(header, x + 5, startY + 6, {
-        width: colWidth - 10,
+      doc.text(header, x + 5, currentY + 8, {
+        width: colWidths[i] - 10,
         align: 'left'
       });
+      x += colWidths[i];
     });
     
-    // Filas
-    doc.fillColor('#000')
-       .font('Helvetica');
+    currentY += headerHeight;
+    
+    // Filas de datos
+    doc.font('Helvetica')
+       .fontSize(10);
     
     rows.forEach((row, rowIndex) => {
-      const y = startY + rowHeight + (rowIndex * rowHeight);
+      // Verificar si necesitamos nueva página
+      if (currentY + rowHeight > pageHeight) {
+        doc.addPage();
+        currentY = 80; // Margen superior en nueva página
+        
+        // Repetir headers en nueva página
+        doc.fontSize(11)
+           .font('Helvetica-Bold');
+        
+        doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), headerHeight)
+           .fillAndStroke('#3498db', '#3498db');
+        
+        doc.fillColor('#fff');
+        let x = startX;
+        headers.forEach((header, i) => {
+          doc.text(header, x + 5, currentY + 8, {
+            width: colWidths[i] - 10,
+            align: 'left'
+          });
+          x += colWidths[i];
+        });
+        
+        currentY += headerHeight;
+        doc.font('Helvetica')
+           .fontSize(10);
+      }
       
       // Alternar colores de fila
-      if (rowIndex % 2 === 1) {
-        doc.rect(startX, y, colWidth * headers.length, rowHeight)
-           .fillAndStroke('#f8f9fa', '#f8f9fa');
-      }
+      const fillColor = rowIndex % 2 === 0 ? '#ffffff' : '#f8f9fa';
+      doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight)
+         .fillAndStroke(fillColor, '#ecf0f1');
       
+      // Contenido de la fila
+      doc.fillColor('#000');
+      let x = startX;
       row.forEach((cell, colIndex) => {
-        const x = startX + (colIndex * colWidth);
-        doc.fontSize(9)
-           .fillColor('#000')
-           .text(cell.toString(), x + 5, y + 6, {
-             width: colWidth - 10,
-             align: 'left'
-           });
+        doc.text(cell.toString(), x + 5, currentY + 6, {
+          width: colWidths[colIndex] - 10,
+          align: 'left'
+        });
+        x += colWidths[colIndex];
       });
       
-      // Verificar si necesitamos nueva página
-      if (y > 700) {
-        doc.addPage();
-        return false; // Salir del loop
-      }
+      currentY += rowHeight;
     });
     
-    doc.y = startY + rowHeight + (rows.length * rowHeight) + 20;
+    doc.y = currentY + 20;
   }
   
-  // Métodos auxiliares
+  // Métodos auxiliares mejorados
+  truncarTexto(texto, maxLength) {
+    if (!texto) return '';
+    return texto.length > maxLength ? texto.substring(0, maxLength - 3) + '...' : texto;
+  }
+  
   formatearMoneda(valor) {
     if (!valor && valor !== 0) return '$0.00';
     return new Intl.NumberFormat('en-US', {
