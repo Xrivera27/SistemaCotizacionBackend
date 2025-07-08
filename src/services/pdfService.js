@@ -1,4 +1,5 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('chrome-aws-lambda');
 
 class PDFService {
   
@@ -10,29 +11,32 @@ class PDFService {
       // Generar HTML del reporte
       const htmlContent = this.generarHTMLReporte(tipoReporte, datosReporte, filtros);
       
-      // Configurar Puppeteer para producción
+      // Configurar Puppeteer para producción con chrome-aws-lambda
       const isProduction = process.env.NODE_ENV === 'production';
       
-      browser = await puppeteer.launch({
-        headless: 'new',
-        args: [
-          '--no-sandbox', 
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
-        ],
-        // En producción, usar Chrome instalado por puppeteer
-        executablePath: isProduction ? undefined : undefined,
-        timeout: 30000
-      });
+      if (isProduction) {
+        // En producción (Render), usar chrome-aws-lambda
+        browser = await puppeteer.launch({
+          args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+          defaultViewport: chromium.defaultViewport,
+          executablePath: await chromium.executablePath,
+          headless: chromium.headless,
+        });
+      } else {
+        // En desarrollo local
+        browser = await puppeteer.launch({
+          headless: 'new',
+          args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+          ]
+        });
+      }
       
       const page = await browser.newPage();
       await page.setContent(htmlContent, { 
