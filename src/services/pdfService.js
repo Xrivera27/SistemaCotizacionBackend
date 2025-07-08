@@ -17,10 +17,11 @@ class PDFService {
       if (isProduction) {
         // En producción (Render), usar chrome-aws-lambda
         browser = await puppeteer.launch({
-          args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+          args: chromium.args,
           defaultViewport: chromium.defaultViewport,
           executablePath: await chromium.executablePath,
           headless: chromium.headless,
+          ignoreHTTPSErrors: true,
         });
       } else {
         // En desarrollo local
@@ -72,7 +73,7 @@ class PDFService {
       }
     }
   }
-  
+
   generarHTMLReporte(tipo, datos, filtros) {
     const fechaActual = new Date().toLocaleDateString('es-HN', {
       year: 'numeric',
