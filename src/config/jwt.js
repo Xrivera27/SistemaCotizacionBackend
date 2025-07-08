@@ -4,7 +4,7 @@ module.exports = {
   cookieOptions: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // ✅ CAMBIO CLAVE
     maxAge: 60 * 60 * 1000 // 1 hora en millisegundos
   }
 };
