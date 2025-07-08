@@ -181,7 +181,7 @@ class PDFService {
       
       // Configuración de tabla AMPLIADA para mostrar texto completo
       const headers = ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'];
-      const colWidths = [55, 170, 135, 65, 80, 130]; // Ajustado para que Estado tenga más espacio
+      const colWidths = [65, 160, 130, 65, 75, 150]; // CT# más ancho, Estado con más espacio
       
       // Preparar datos SIN TRUNCAR - mostrar texto completo
       const rows = datos.detalleCotizaciones.map(cot => [
