@@ -170,7 +170,7 @@ class PDFService {
       doc.moveDown(0.8);
     }
     
-    // Tabla de cotizaciones mejorada
+    // Tabla de cotizaciones mejorada - SIN TRUNCAR
     if (datos.detalleCotizaciones && datos.detalleCotizaciones.length > 0) {
       doc.fontSize(16)
          .font('Helvetica-Bold')
@@ -179,21 +179,21 @@ class PDFService {
       
       doc.moveDown(0.5);
       
-      // Configuración de tabla optimizada - todo en una línea
+      // Configuración de tabla AMPLIADA para mostrar texto completo
       const headers = ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'];
-      const colWidths = [50, 150, 120, 60, 80, 90]; // Columnas más anchas
+      const colWidths = [60, 180, 140, 70, 85, 110]; // Columnas más anchas para texto completo
       
-      // Preparar datos con texto completo pero en una línea
+      // Preparar datos SIN TRUNCAR - mostrar texto completo
       const rows = datos.detalleCotizaciones.map(cot => [
         `CT${String(cot.id).padStart(6, '0')}`,
-        this.truncarTexto(cot.cliente, 28), // Más caracteres pero una línea
-        this.truncarTexto(cot.vendedor, 22), // Más caracteres pero una línea
+        cot.cliente || '', // Texto completo sin truncar
+        cot.vendedor || '', // Texto completo sin truncar
         this.formatearFecha(cot.fecha),
         this.formatearMoneda(cot.total),
         this.getEstadoTextoCompleto(cot.estado)
       ]);
       
-      this.generarTablaMejorada(doc, headers, rows, colWidths);
+      this.generarTablaMejoradaConTextoCompleto(doc, headers, rows, colWidths);
     }
   }
   
@@ -211,17 +211,17 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Vendedor', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'];
-    const colWidths = [180, 80, 70, 70, 85]; // Más espacio para vendedor, compacto para números
+    const colWidths = [220, 80, 70, 70, 85]; // Más espacio para vendedor
     
     const rows = datos.rendimientoVendedores.map(v => [
-      this.truncarTexto(v.nombre, 35), // Más caracteres en una línea
+      v.nombre || '', // Texto completo sin truncar
       v.cotizaciones.toString(),
       v.efectivas.toString(),
       `${v.conversion}%`,
       this.formatearMoneda(v.ingresos)
     ]);
     
-    this.generarTablaMejorada(doc, headers, rows, colWidths);
+    this.generarTablaMejoradaConTextoCompleto(doc, headers, rows, colWidths);
   }
   
   generarPDFServicios(doc, datos) {
@@ -238,17 +238,17 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Servicio', 'Categoría', 'Cotizaciones', 'Efectivas', 'Ingresos'];
-    const colWidths = [190, 120, 70, 70, 85]; // Más espacio para servicio y categoría
+    const colWidths = [220, 140, 70, 70, 85]; // Más espacio para servicio y categoría
     
     const rows = datos.rendimientoServicios.map(s => [
-      this.truncarTexto(s.nombre, 38), // Más caracteres en una línea
-      this.truncarTexto(s.categoria || 'Sin categoría', 25), // Más caracteres
+      s.nombre || '', // Texto completo sin truncar
+      s.categoria || 'Sin categoría', // Texto completo sin truncar
       s.cotizaciones.toString(),
       s.efectivas.toString(),
       this.formatearMoneda(s.ingresos)
     ]);
     
-    this.generarTablaMejorada(doc, headers, rows, colWidths);
+    this.generarTablaMejoradaConTextoCompleto(doc, headers, rows, colWidths);
   }
   
   generarPDFClientes(doc, datos) {
@@ -265,16 +265,16 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Cliente', 'Empresa', 'Cotizaciones', 'Total Facturado'];
-    const colWidths = [170, 190, 70, 85]; // Más espacio para nombres
+    const colWidths = [200, 220, 70, 85]; // Más espacio para nombres
     
     const rows = datos.actividadClientes.map(c => [
-      this.truncarTexto(c.nombreEncargado, 32), // Más caracteres en una línea
-      this.truncarTexto(c.empresa, 38), // Más caracteres en una línea
+      c.nombreEncargado || '', // Texto completo sin truncar
+      c.empresa || '', // Texto completo sin truncar
       c.totalCotizaciones.toString(),
       this.formatearMoneda(c.totalFacturado)
     ]);
     
-    this.generarTablaMejorada(doc, headers, rows, colWidths);
+    this.generarTablaMejoradaConTextoCompleto(doc, headers, rows, colWidths);
   }
   
   generarPDFFinanciero(doc, datos) {
@@ -318,7 +318,7 @@ class PDFService {
       doc.moveDown(0.5);
       
       const headers = ['Mes', 'Cotizaciones', 'Efectivas', 'Ingresos', 'Crecimiento'];
-      const colWidths = [100, 85, 75, 100, 90]; // Más espacio para el mes
+      const colWidths = [120, 85, 75, 100, 90]; // Más espacio para el mes
       
       const rows = datos.financiero.detallesMensuales.map(m => [
         m.mes,
@@ -328,14 +328,15 @@ class PDFService {
         `${m.crecimiento > 0 ? '+' : ''}${m.crecimiento}%`
       ]);
       
-      this.generarTablaMejorada(doc, headers, rows, colWidths);
+      this.generarTablaMejoradaConTextoCompleto(doc, headers, rows, colWidths);
     }
   }
   
-  generarTablaMejorada(doc, headers, rows, colWidths) {
+  // NUEVA FUNCIÓN para tabla con texto completo (sin truncar)
+  generarTablaMejoradaConTextoCompleto(doc, headers, rows, colWidths) {
     const startX = 40;
     let currentY = doc.y;
-    const rowHeight = 25;
+    const baseRowHeight = 25;
     const headerHeight = 30;
     const pageHeight = 750; // Límite para nueva página
     
@@ -360,11 +361,22 @@ class PDFService {
     
     currentY += headerHeight;
     
-    // Filas de datos
+    // Filas de datos con altura dinámica
     doc.font('Helvetica')
        .fontSize(10);
     
     rows.forEach((row, rowIndex) => {
+      // Calcular altura necesaria para esta fila
+      let maxLines = 1;
+      row.forEach((cell, colIndex) => {
+        const cellText = cell.toString();
+        const cellWidth = colWidths[colIndex] - 10;
+        const lines = this.calcularLineasTexto(doc, cellText, cellWidth, 10);
+        maxLines = Math.max(maxLines, lines);
+      });
+      
+      const rowHeight = Math.max(baseRowHeight, maxLines * 12 + 8);
+      
       // Verificar si necesitamos nueva página
       if (currentY + rowHeight > pageHeight) {
         doc.addPage();
@@ -397,13 +409,14 @@ class PDFService {
       doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight)
          .fillAndStroke(fillColor, '#ecf0f1');
       
-      // Contenido de la fila
+      // Contenido de la fila - TEXTO COMPLETO sin truncar
       doc.fillColor('#000');
       let x = startX;
       row.forEach((cell, colIndex) => {
         doc.text(cell.toString(), x + 5, currentY + 6, {
           width: colWidths[colIndex] - 10,
-          align: 'left'
+          align: 'left',
+          lineGap: 2 // Espaciado entre líneas
         });
         x += colWidths[colIndex];
       });
@@ -414,16 +427,16 @@ class PDFService {
     doc.y = currentY + 20;
   }
   
-  // Métodos auxiliares mejorados
-  truncarTexto(texto, maxLength) {
-    if (!texto) return '';
-    // Solo truncar si realmente es necesario y es mucho más largo
-    if (texto.length > maxLength + 5) {
-      return texto.substring(0, maxLength - 1) + '...';
-    }
-    return texto;
+  // Nueva función para calcular líneas de texto
+  calcularLineasTexto(doc, texto, ancho, fontSize) {
+    if (!texto) return 1;
+    
+    doc.fontSize(fontSize);
+    const lines = doc.heightOfString(texto, { width: ancho });
+    return Math.ceil(lines / (fontSize * 1.2)); // 1.2 es el factor de line height
   }
   
+  // Métodos auxiliares - SIN TRUNCAR
   formatearMoneda(valor) {
     if (!valor && valor !== 0) return '$0.00';
     return new Intl.NumberFormat('en-US', {
