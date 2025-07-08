@@ -179,18 +179,18 @@ class PDFService {
       
       doc.moveDown(0.5);
       
-      // Configuración de tabla optimizada
+      // Configuración de tabla optimizada - todo en una línea
       const headers = ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'];
-      const colWidths = [55, 140, 110, 65, 75, 70]; // Anchos optimizados para mostrar más texto
+      const colWidths = [50, 150, 120, 60, 80, 90]; // Columnas más anchas
       
-      // Preparar datos con texto completo
+      // Preparar datos con texto completo pero en una línea
       const rows = datos.detalleCotizaciones.map(cot => [
         `CT${String(cot.id).padStart(6, '0')}`,
-        this.truncarTexto(cot.cliente, 25), // Más caracteres
-        this.truncarTexto(cot.vendedor, 20), // Más caracteres
+        this.truncarTexto(cot.cliente, 28), // Más caracteres pero una línea
+        this.truncarTexto(cot.vendedor, 22), // Más caracteres pero una línea
         this.formatearFecha(cot.fecha),
         this.formatearMoneda(cot.total),
-        this.getEstadoTextoCompleto(cot.estado) // Función nueva para texto completo
+        this.getEstadoTextoCompleto(cot.estado)
       ]);
       
       this.generarTablaMejorada(doc, headers, rows, colWidths);
@@ -211,10 +211,10 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Vendedor', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'];
-    const colWidths = [160, 85, 75, 75, 90]; // Más espacio para vendedor
+    const colWidths = [180, 80, 70, 70, 85]; // Más espacio para vendedor, compacto para números
     
     const rows = datos.rendimientoVendedores.map(v => [
-      this.truncarTexto(v.nombre, 28), // Más caracteres
+      this.truncarTexto(v.nombre, 35), // Más caracteres en una línea
       v.cotizaciones.toString(),
       v.efectivas.toString(),
       `${v.conversion}%`,
@@ -238,11 +238,11 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Servicio', 'Categoría', 'Cotizaciones', 'Efectivas', 'Ingresos'];
-    const colWidths = [170, 110, 75, 75, 85]; // Más espacio para servicio
+    const colWidths = [190, 120, 70, 70, 85]; // Más espacio para servicio y categoría
     
     const rows = datos.rendimientoServicios.map(s => [
-      this.truncarTexto(s.nombre, 30), // Más caracteres
-      this.truncarTexto(s.categoria || 'Sin categoría', 20), // Más caracteres
+      this.truncarTexto(s.nombre, 38), // Más caracteres en una línea
+      this.truncarTexto(s.categoria || 'Sin categoría', 25), // Más caracteres
       s.cotizaciones.toString(),
       s.efectivas.toString(),
       this.formatearMoneda(s.ingresos)
@@ -265,11 +265,11 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Cliente', 'Empresa', 'Cotizaciones', 'Total Facturado'];
-    const colWidths = [150, 170, 75, 90]; // Más espacio para nombres
+    const colWidths = [170, 190, 70, 85]; // Más espacio para nombres
     
     const rows = datos.actividadClientes.map(c => [
-      this.truncarTexto(c.nombreEncargado, 26), // Más caracteres
-      this.truncarTexto(c.empresa, 30), // Más caracteres
+      this.truncarTexto(c.nombreEncargado, 32), // Más caracteres en una línea
+      this.truncarTexto(c.empresa, 38), // Más caracteres en una línea
       c.totalCotizaciones.toString(),
       this.formatearMoneda(c.totalFacturado)
     ]);
