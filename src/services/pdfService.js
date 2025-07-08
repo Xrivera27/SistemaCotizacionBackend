@@ -10,7 +10,9 @@ class PDFService {
       // Generar HTML del reporte
       const htmlContent = this.generarHTMLReporte(tipoReporte, datosReporte, filtros);
       
-      // Configurar Puppeteer
+      // Configurar Puppeteer para producción
+      const isProduction = process.env.NODE_ENV === 'production';
+      
       browser = await puppeteer.launch({
         headless: 'new',
         args: [
@@ -20,12 +22,23 @@ class PDFService {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--disable-gpu'
-        ]
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
+        ],
+        // En producción, usar Chrome instalado por puppeteer
+        executablePath: isProduction ? undefined : undefined,
+        timeout: 30000
       });
       
       const page = await browser.newPage();
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+      await page.setContent(htmlContent, { 
+        waitUntil: 'networkidle0',
+        timeout: 30000 
+      });
       
       // Generar PDF
       const pdfBuffer = await page.pdf({
@@ -36,7 +49,8 @@ class PDFService {
           right: '20px',
           bottom: '20px',
           left: '20px'
-        }
+        },
+        timeout: 30000
       });
       
       return {
@@ -47,7 +61,7 @@ class PDFService {
       
     } catch (error) {
       console.error('Error generando PDF:', error);
-      throw new Error('Error al generar PDF');
+      throw new Error('Error al generar PDF: ' + error.message);
     } finally {
       if (browser) {
         await browser.close();
@@ -449,15 +463,14 @@ class PDFService {
   }
   
   // Métodos auxiliares
-  // REEMPLAZAR el método formatearMoneda:
-formatearMoneda(valor) {
-  if (!valor && valor !== 0) return '$0.00';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2
-  }).format(valor);
-}
+  formatearMoneda(valor) {
+    if (!valor && valor !== 0) return '$0.00';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(valor);
+  }
   
   formatearFecha(fecha) {
     if (!fecha) return '';
