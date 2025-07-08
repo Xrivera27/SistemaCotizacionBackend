@@ -181,16 +181,16 @@ class PDFService {
       
       // Configuración de tabla optimizada
       const headers = ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'];
-      const colWidths = [60, 120, 100, 70, 80, 85]; // Anchos optimizados
+      const colWidths = [55, 140, 110, 65, 75, 70]; // Anchos optimizados para mostrar más texto
       
-      // Preparar datos limitando texto
+      // Preparar datos con texto completo
       const rows = datos.detalleCotizaciones.map(cot => [
         `CT${String(cot.id).padStart(6, '0')}`,
-        this.truncarTexto(cot.cliente, 18),
-        this.truncarTexto(cot.vendedor, 15),
+        this.truncarTexto(cot.cliente, 25), // Más caracteres
+        this.truncarTexto(cot.vendedor, 20), // Más caracteres
         this.formatearFecha(cot.fecha),
         this.formatearMoneda(cot.total),
-        this.truncarTexto(this.getEstadoTexto(cot.estado), 12)
+        this.getEstadoTextoCompleto(cot.estado) // Función nueva para texto completo
       ]);
       
       this.generarTablaMejorada(doc, headers, rows, colWidths);
@@ -211,10 +211,10 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Vendedor', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'];
-    const colWidths = [140, 90, 80, 80, 100];
+    const colWidths = [160, 85, 75, 75, 90]; // Más espacio para vendedor
     
     const rows = datos.rendimientoVendedores.map(v => [
-      this.truncarTexto(v.nombre, 20),
+      this.truncarTexto(v.nombre, 28), // Más caracteres
       v.cotizaciones.toString(),
       v.efectivas.toString(),
       `${v.conversion}%`,
@@ -238,11 +238,11 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Servicio', 'Categoría', 'Cotizaciones', 'Efectivas', 'Ingresos'];
-    const colWidths = [150, 100, 80, 80, 100];
+    const colWidths = [170, 110, 75, 75, 85]; // Más espacio para servicio
     
     const rows = datos.rendimientoServicios.map(s => [
-      this.truncarTexto(s.nombre, 22),
-      this.truncarTexto(s.categoria || 'Sin categoría', 15),
+      this.truncarTexto(s.nombre, 30), // Más caracteres
+      this.truncarTexto(s.categoria || 'Sin categoría', 20), // Más caracteres
       s.cotizaciones.toString(),
       s.efectivas.toString(),
       this.formatearMoneda(s.ingresos)
@@ -265,11 +265,11 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Cliente', 'Empresa', 'Cotizaciones', 'Total Facturado'];
-    const colWidths = [130, 150, 80, 100];
+    const colWidths = [150, 170, 75, 90]; // Más espacio para nombres
     
     const rows = datos.actividadClientes.map(c => [
-      this.truncarTexto(c.nombreEncargado, 18),
-      this.truncarTexto(c.empresa, 22),
+      this.truncarTexto(c.nombreEncargado, 26), // Más caracteres
+      this.truncarTexto(c.empresa, 30), // Más caracteres
       c.totalCotizaciones.toString(),
       this.formatearMoneda(c.totalFacturado)
     ]);
@@ -318,7 +318,7 @@ class PDFService {
       doc.moveDown(0.5);
       
       const headers = ['Mes', 'Cotizaciones', 'Efectivas', 'Ingresos', 'Crecimiento'];
-      const colWidths = [80, 90, 80, 100, 90];
+      const colWidths = [100, 85, 75, 100, 90]; // Más espacio para el mes
       
       const rows = datos.financiero.detallesMensuales.map(m => [
         m.mes,
@@ -417,7 +417,11 @@ class PDFService {
   // Métodos auxiliares mejorados
   truncarTexto(texto, maxLength) {
     if (!texto) return '';
-    return texto.length > maxLength ? texto.substring(0, maxLength - 3) + '...' : texto;
+    // Solo truncar si realmente es necesario y es mucho más largo
+    if (texto.length > maxLength + 5) {
+      return texto.substring(0, maxLength - 1) + '...';
+    }
+    return texto;
   }
   
   formatearMoneda(valor) {
@@ -436,6 +440,16 @@ class PDFService {
       month: '2-digit',
       day: '2-digit'
     });
+  }
+  
+  getEstadoTextoCompleto(estado) {
+    const estados = {
+      'efectiva': 'Efectiva',
+      'pendiente': 'Pendiente',
+      'pendiente_aprobacion': 'Esperando Aprobación',
+      'rechazada': 'Cancelada'
+    };
+    return estados[estado] || estado;
   }
   
   getEstadoTexto(estado) {
