@@ -1,62 +1,37 @@
-const puppeteer = require('puppeteer-core');
-const chromium = require('chrome-aws-lambda');
+const PDFDocument = require('pdfkit');
 
 class PDFService {
   
   async generarReportePDF(tipoReporte, datosReporte, filtros) {
-    let browser;
     try {
       console.log('📄 Generando PDF para reporte:', tipoReporte);
       
-      // Generar HTML del reporte
-      const htmlContent = this.generarHTMLReporte(tipoReporte, datosReporte, filtros);
-      
-      // Configurar Puppeteer para producción con chrome-aws-lambda
-      const isProduction = process.env.NODE_ENV === 'production';
-      
-      if (isProduction) {
-        // En producción (Render), usar chrome-aws-lambda
-        browser = await puppeteer.launch({
-          args: chromium.args,
-          defaultViewport: chromium.defaultViewport,
-          executablePath: await chromium.executablePath,
-          headless: chromium.headless,
-          ignoreHTTPSErrors: true,
-        });
-      } else {
-        // En desarrollo local
-        browser = await puppeteer.launch({
-          headless: 'new',
-          args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
-          ]
-        });
-      }
-      
-      const page = await browser.newPage();
-      await page.setContent(htmlContent, { 
-        waitUntil: 'networkidle0',
-        timeout: 30000 
+      // Crear documento PDF
+      const doc = new PDFDocument({ 
+        margin: 50,
+        size: 'A4'
       });
       
-      // Generar PDF
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '20px',
-          right: '20px',
-          bottom: '20px',
-          left: '20px'
-        },
-        timeout: 30000
+      // Buffer para almacenar el PDF
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      
+      // Promesa que se resuelve cuando termina la generación
+      const pdfPromise = new Promise((resolve) => {
+        doc.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          resolve(buffer);
+        });
       });
+      
+      // Generar contenido del PDF
+      this.generarContenidoPDF(doc, tipoReporte, datosReporte, filtros);
+      
+      // Finalizar documento
+      doc.end();
+      
+      // Esperar a que termine la generación
+      const pdfBuffer = await pdfPromise;
       
       return {
         buffer: pdfBuffer,
@@ -67,404 +42,311 @@ class PDFService {
     } catch (error) {
       console.error('Error generando PDF:', error);
       throw new Error('Error al generar PDF: ' + error.message);
-    } finally {
-      if (browser) {
-        await browser.close();
-      }
     }
   }
-
-  generarHTMLReporte(tipo, datos, filtros) {
+  
+  generarContenidoPDF(doc, tipo, datos, filtros) {
+    // Header del documento
+    this.agregarHeader(doc, tipo, filtros);
+    
+    // Contenido según el tipo de reporte
+    switch (tipo) {
+      case 'cotizaciones':
+        this.generarPDFCotizaciones(doc, datos);
+        break;
+      case 'vendedores':
+        this.generarPDFVendedores(doc, datos);
+        break;
+      case 'servicios':
+        this.generarPDFServicios(doc, datos);
+        break;
+      case 'clientes':
+        this.generarPDFClientes(doc, datos);
+        break;
+      case 'financiero':
+        this.generarPDFFinanciero(doc, datos);
+        break;
+      default:
+        doc.text('Tipo de reporte no reconocido', { align: 'center' });
+    }
+  }
+  
+  agregarHeader(doc, tipo, filtros) {
     const fechaActual = new Date().toLocaleDateString('es-HN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
     
+    // Título principal
+    doc.fontSize(20)
+       .font('Helvetica-Bold')
+       .text('Sistema de Cotizaciones', { align: 'center' });
+    
+    doc.moveDown(0.5);
+    
+    // Subtítulo
+    doc.fontSize(16)
+       .text(`Reporte de ${this.getTipoNombre(tipo)}`, { align: 'center' });
+    
+    doc.moveDown(0.5);
+    
+    // Información del reporte
+    doc.fontSize(12)
+       .font('Helvetica')
+       .text(`Fecha de generación: ${fechaActual}`, { align: 'center' });
+    
     const periodo = this.getDescripcionPeriodo(filtros);
+    doc.text(`Período: ${periodo}`, { align: 'center' });
     
-    let contenidoReporte = '';
+    // Línea separadora
+    doc.moveDown(1);
+    doc.strokeColor('#3498db')
+       .lineWidth(2)
+       .moveTo(50, doc.y)
+       .lineTo(550, doc.y)
+       .stroke();
     
-    switch (tipo) {
-      case 'cotizaciones':
-        contenidoReporte = this.generarHTMLCotizaciones(datos);
-        break;
-      case 'vendedores':
-        contenidoReporte = this.generarHTMLVendedores(datos);
-        break;
-      case 'servicios':
-        contenidoReporte = this.generarHTMLServicios(datos);
-        break;
-      case 'clientes':
-        contenidoReporte = this.generarHTMLClientes(datos);
-        break;
-      case 'financiero':
-        contenidoReporte = this.generarHTMLFinanciero(datos);
-        break;
-    }
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Reporte ${tipo}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            line-height: 1.4;
-            color: #2c3e50;
-          }
-          .header { 
-            text-align: center; 
-            margin-bottom: 30px; 
-            border-bottom: 3px solid #3498db; 
-            padding-bottom: 15px; 
-          }
-          .header h1 { 
-            color: #2c3e50; 
-            margin: 0; 
-            font-size: 28px;
-            font-weight: bold;
-          }
-          .header p { 
-            color: #7f8c8d; 
-            margin: 5px 0; 
-            font-size: 14px;
-          }
-          .table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 20px 0; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-          }
-          .table th { 
-            background: linear-gradient(135deg, #3498db, #2980b9); 
-            color: white; 
-            padding: 12px 8px; 
-            text-align: left; 
-            font-weight: bold;
-            font-size: 12px;
-          }
-          .table td { 
-            padding: 10px 8px; 
-            border-bottom: 1px solid #ecf0f1; 
-            font-size: 11px;
-          }
-          .table tr:nth-child(even) { background: #f8f9fa; }
-          .table tr:hover { background: #e8f4fd; }
-          .table tfoot td {
-            background: #ecf0f1;
-            font-weight: bold;
-            border-top: 2px solid #3498db;
-          }
-          .resumen { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
-            gap: 15px; 
-            margin: 20px 0; 
-          }
-          .resumen-item { 
-            background: #f8f9fa; 
-            padding: 15px; 
-            border-left: 4px solid #3498db; 
-            border-radius: 5px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          }
-          .resumen-label { 
-            font-weight: bold; 
-            color: #2c3e50; 
-            font-size: 12px;
-            margin-bottom: 5px;
-          }
-          .resumen-valor { 
-            font-size: 18px; 
-            font-weight: bold;
-            margin-top: 5px; 
-          }
-          .estado-efectiva, .efectivas { color: #27ae60; }
-          .estado-pendiente, .pendientes { color: #f39c12; }
-          .estado-cancelada, .canceladas { color: #e74c3c; }
-          .ingresos { color: #8e44ad; }
-          .positivo { color: #27ae60; }
-          .negativo { color: #e74c3c; }
-          h3 { 
-            color: #2c3e50; 
-            border-bottom: 2px solid #ecf0f1; 
-            padding-bottom: 10px;
-            margin-top: 30px;
-          }
-          .vendedor-info strong { color: #2c3e50; }
-          .vendedor-info small { color: #7f8c8d; }
-          .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #7f8c8d;
-            font-style: italic;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Sistema de Cotizaciones</h1>
-          <p><strong>Reporte de ${this.getTipoNombre(tipo)}</strong></p>
-          <p>Fecha de generación: ${fechaActual}</p>
-          <p>Período: ${periodo}</p>
-        </div>
-        ${contenidoReporte}
-      </body>
-      </html>
-    `;
+    doc.moveDown(1);
   }
   
-  generarHTMLCotizaciones(datos) {
-    const resumen = `
-      <div class="resumen">
-        <div class="resumen-item">
-          <div class="resumen-label">Total Cotizaciones</div>
-          <div class="resumen-valor">${datos.totalCotizaciones || 0}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Efectivas</div>
-          <div class="resumen-valor efectivas">${datos.cotizacionesEfectivas || 0}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Pendientes</div>
-          <div class="resumen-valor pendientes">${datos.cotizacionesPendientes || 0}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Canceladas</div>
-          <div class="resumen-valor canceladas">${datos.cotizacionesCanceladas || 0}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Ingresos Totales</div>
-          <div class="resumen-valor ingresos">${this.formatearMoneda(datos.ingresosTotales)}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Tasa de Conversión</div>
-          <div class="resumen-valor">${datos.tasaConversion || 0}%</div>
-        </div>
-      </div>
-    `;
+  generarPDFCotizaciones(doc, datos) {
+    // Resumen en rectángulos
+    const startY = doc.y;
+    const boxWidth = 120;
+    const boxHeight = 60;
+    const spacing = 10;
     
-    if (!datos.detalleCotizaciones || datos.detalleCotizaciones.length === 0) {
-      return resumen + '<div class="no-data">No hay cotizaciones para mostrar</div>';
+    const resumenes = [
+      { label: 'Total Cotizaciones', valor: datos.totalCotizaciones || 0, color: '#3498db' },
+      { label: 'Efectivas', valor: datos.cotizacionesEfectivas || 0, color: '#27ae60' },
+      { label: 'Pendientes', valor: datos.cotizacionesPendientes || 0, color: '#f39c12' },
+      { label: 'Canceladas', valor: datos.cotizacionesCanceladas || 0, color: '#e74c3c' }
+    ];
+    
+    resumenes.forEach((item, index) => {
+      const x = 50 + (index % 4) * (boxWidth + spacing);
+      const y = startY + Math.floor(index / 4) * (boxHeight + spacing);
+      
+      // Rectángulo
+      doc.rect(x, y, boxWidth, boxHeight)
+         .strokeColor(item.color)
+         .lineWidth(2)
+         .stroke();
+      
+      // Valor
+      doc.fontSize(16)
+         .font('Helvetica-Bold')
+         .fillColor(item.color)
+         .text(item.valor.toString(), x + 10, y + 10, { width: boxWidth - 20, align: 'center' });
+      
+      // Label
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor('#000')
+         .text(item.label, x + 10, y + 35, { width: boxWidth - 20, align: 'center' });
+    });
+    
+    doc.moveDown(3);
+    
+    // Ingresos totales (más grande)
+    if (datos.ingresosTotales) {
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text(`Ingresos Totales: ${this.formatearMoneda(datos.ingresosTotales)}`, { align: 'center' });
+      doc.moveDown(1);
     }
     
-    const tabla = `
-      <h3>Detalle de Cotizaciones</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>CT#</th>
-            <th>Cliente</th>
-            <th>Vendedor</th>
-            <th>Fecha</th>
-            <th>Total</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${datos.detalleCotizaciones.map(cot => `
-            <tr>
-              <td><strong>CT${String(cot.id).padStart(6, '0')}</strong></td>
-              <td>${cot.cliente}</td>
-              <td>${cot.vendedor}</td>
-              <td>${this.formatearFecha(cot.fecha)}</td>
-              <td><strong>${this.formatearMoneda(cot.total)}</strong></td>
-              <td class="estado-${cot.estado}"><strong>${this.getEstadoTexto(cot.estado)}</strong></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-    
-    return resumen + tabla;
+    // Tabla de cotizaciones
+    if (datos.detalleCotizaciones && datos.detalleCotizaciones.length > 0) {
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('Detalle de Cotizaciones', { align: 'left' });
+      
+      doc.moveDown(0.5);
+      
+      this.generarTabla(doc, 
+        ['CT#', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'],
+        datos.detalleCotizaciones.map(cot => [
+          `CT${String(cot.id).padStart(6, '0')}`,
+          cot.cliente.substring(0, 15) + (cot.cliente.length > 15 ? '...' : ''),
+          cot.vendedor.substring(0, 12) + (cot.vendedor.length > 12 ? '...' : ''),
+          this.formatearFecha(cot.fecha),
+          this.formatearMoneda(cot.total),
+          this.getEstadoTexto(cot.estado)
+        ])
+      );
+    }
   }
   
-  generarHTMLVendedores(datos) {
+  generarPDFVendedores(doc, datos) {
     if (!datos.rendimientoVendedores || datos.rendimientoVendedores.length === 0) {
-      return '<div class="no-data">No hay datos de vendedores para mostrar</div>';
+      doc.text('No hay datos de vendedores para mostrar', { align: 'center' });
+      return;
     }
     
-    return `
-      <h3>Rendimiento por Vendedor</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Vendedor</th>
-            <th>Cotizaciones</th>
-            <th>Efectivas</th>
-            <th>Conversión</th>
-            <th>Ingresos</th>
-            <th>Ticket Promedio</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${datos.rendimientoVendedores.map(v => `
-            <tr>
-              <td class="vendedor-info">
-                <strong>${v.nombre}</strong><br>
-                <small>${v.rol}</small>
-              </td>
-              <td><strong>${v.cotizaciones}</strong></td>
-              <td class="efectivas"><strong>${v.efectivas}</strong></td>
-              <td><strong>${v.conversion}%</strong></td>
-              <td><strong>${this.formatearMoneda(v.ingresos)}</strong></td>
-              <td><strong>${this.formatearMoneda(v.ticketPromedio)}</strong></td>
-            </tr>
-          `).join('')}
-        </tbody>
-        ${datos.totales ? `
-          <tfoot>
-            <tr>
-              <td><strong>TOTALES</strong></td>
-              <td><strong>${datos.totales.cotizaciones}</strong></td>
-              <td><strong>${datos.totales.efectivas}</strong></td>
-              <td><strong>${datos.totales.conversionPromedio}%</strong></td>
-              <td><strong>${this.formatearMoneda(datos.totales.ingresos)}</strong></td>
-              <td><strong>${this.formatearMoneda(datos.totales.ticketPromedio)}</strong></td>
-            </tr>
-          </tfoot>
-        ` : ''}
-      </table>
-    `;
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Rendimiento por Vendedor', { align: 'left' });
+    
+    doc.moveDown(0.5);
+    
+    this.generarTabla(doc,
+      ['Vendedor', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'],
+      datos.rendimientoVendedores.map(v => [
+        v.nombre.substring(0, 20),
+        v.cotizaciones.toString(),
+        v.efectivas.toString(),
+        `${v.conversion}%`,
+        this.formatearMoneda(v.ingresos)
+      ])
+    );
   }
   
-  generarHTMLServicios(datos) {
+  generarPDFServicios(doc, datos) {
     if (!datos.rendimientoServicios || datos.rendimientoServicios.length === 0) {
-      return '<div class="no-data">No hay datos de servicios para mostrar</div>';
+      doc.text('No hay datos de servicios para mostrar', { align: 'center' });
+      return;
     }
     
-    return `
-      <h3>Rendimiento por Servicio</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Servicio</th>
-            <th>Categoría</th>
-            <th>Cotizaciones</th>
-            <th>Efectivas</th>
-            <th>Conversión</th>
-            <th>Ingresos</th>
-            <th>Precio Promedio</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${datos.rendimientoServicios.map(s => `
-            <tr>
-              <td><strong>${s.nombre}</strong></td>
-              <td>${s.categoria || 'Sin categoría'}</td>
-              <td><strong>${s.cotizaciones}</strong></td>
-              <td class="efectivas"><strong>${s.efectivas}</strong></td>
-              <td><strong>${s.conversion}%</strong></td>
-              <td><strong>${this.formatearMoneda(s.ingresos)}</strong></td>
-              <td><strong>${this.formatearMoneda(s.precioPromedio)}</strong></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Rendimiento por Servicio', { align: 'left' });
+    
+    doc.moveDown(0.5);
+    
+    this.generarTabla(doc,
+      ['Servicio', 'Categoría', 'Cotizaciones', 'Efectivas', 'Ingresos'],
+      datos.rendimientoServicios.map(s => [
+        s.nombre.substring(0, 25),
+        (s.categoria || 'Sin categoría').substring(0, 15),
+        s.cotizaciones.toString(),
+        s.efectivas.toString(),
+        this.formatearMoneda(s.ingresos)
+      ])
+    );
   }
   
-  generarHTMLClientes(datos) {
+  generarPDFClientes(doc, datos) {
     if (!datos.actividadClientes || datos.actividadClientes.length === 0) {
-      return '<div class="no-data">No hay datos de clientes para mostrar</div>';
+      doc.text('No hay datos de clientes para mostrar', { align: 'center' });
+      return;
     }
     
-    return `
-      <h3>Actividad por Cliente</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Cliente</th>
-            <th>Empresa</th>
-            <th>Vendedor Asignado</th>
-            <th>Cotizaciones</th>
-            <th>Última Cotización</th>
-            <th>Total Facturado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${datos.actividadClientes.map(c => `
-            <tr>
-              <td><strong>${c.nombreEncargado}</strong></td>
-              <td>${c.empresa}</td>
-              <td>${c.vendedorAsignado}</td>
-              <td><strong>${c.totalCotizaciones}</strong></td>
-              <td>${this.formatearFecha(c.ultimaCotizacion)}</td>
-              <td><strong>${this.formatearMoneda(c.totalFacturado)}</strong></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Actividad por Cliente', { align: 'left' });
+    
+    doc.moveDown(0.5);
+    
+    this.generarTabla(doc,
+      ['Cliente', 'Empresa', 'Cotizaciones', 'Total Facturado'],
+      datos.actividadClientes.map(c => [
+        c.nombreEncargado.substring(0, 20),
+        c.empresa.substring(0, 20),
+        c.totalCotizaciones.toString(),
+        this.formatearMoneda(c.totalFacturado)
+      ])
+    );
   }
   
-  generarHTMLFinanciero(datos) {
+  generarPDFFinanciero(doc, datos) {
     if (!datos.financiero) {
-      return '<div class="no-data">No hay datos financieros para mostrar</div>';
+      doc.text('No hay datos financieros para mostrar', { align: 'center' });
+      return;
     }
     
-    const resumen = `
-      <div class="resumen">
-        <div class="resumen-item">
-          <div class="resumen-label">Ingresos Brutos</div>
-          <div class="resumen-valor ingresos">${this.formatearMoneda(datos.financiero.ingresosBrutos)}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Promedio Mensual</div>
-          <div class="resumen-valor">${this.formatearMoneda(datos.financiero.promedioMensual)}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Mejor Mes</div>
-          <div class="resumen-valor">${datos.financiero.mejorMes || 'Sin datos'}</div>
-        </div>
-        <div class="resumen-item">
-          <div class="resumen-label">Crecimiento</div>
-          <div class="resumen-valor ${(datos.financiero.crecimiento || 0) > 0 ? 'positivo' : 'negativo'}">
-            ${(datos.financiero.crecimiento || 0) > 0 ? '+' : ''}${datos.financiero.crecimiento || 0}%
-          </div>
-        </div>
-      </div>
-    `;
+    // Resumen financiero
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Resumen Financiero', { align: 'left' });
     
-    if (!datos.financiero.detallesMensuales || datos.financiero.detallesMensuales.length === 0) {
-      return resumen + '<div class="no-data">No hay detalles mensuales para mostrar</div>';
+    doc.moveDown(0.5);
+    
+    doc.fontSize(12)
+       .font('Helvetica')
+       .text(`Ingresos Brutos: ${this.formatearMoneda(datos.financiero.ingresosBrutos)}`)
+       .text(`Promedio Mensual: ${this.formatearMoneda(datos.financiero.promedioMensual)}`)
+       .text(`Mejor Mes: ${datos.financiero.mejorMes || 'Sin datos'}`)
+       .text(`Crecimiento: ${datos.financiero.crecimiento || 0}%`);
+    
+    doc.moveDown(1);
+    
+    // Tabla de detalles mensuales
+    if (datos.financiero.detallesMensuales && datos.financiero.detallesMensuales.length > 0) {
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .text('Ingresos por Mes', { align: 'left' });
+      
+      doc.moveDown(0.5);
+      
+      this.generarTabla(doc,
+        ['Mes', 'Cotizaciones', 'Efectivas', 'Ingresos', 'Crecimiento'],
+        datos.financiero.detallesMensuales.map(m => [
+          m.mes,
+          m.cotizaciones.toString(),
+          m.efectivas.toString(),
+          this.formatearMoneda(m.ingresos),
+          `${m.crecimiento > 0 ? '+' : ''}${m.crecimiento}%`
+        ])
+      );
     }
+  }
+  
+  generarTabla(doc, headers, rows) {
+    const startX = 50;
+    const startY = doc.y;
+    const rowHeight = 20;
+    const colWidth = (550 - 50) / headers.length;
     
-    const tabla = `
-      <h3>Ingresos por Mes</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Mes</th>
-            <th>Cotizaciones</th>
-            <th>Efectivas</th>
-            <th>Ingresos</th>
-            <th>Crecimiento</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${datos.financiero.detallesMensuales.map(m => `
-            <tr>
-              <td><strong>${m.mes}</strong></td>
-              <td><strong>${m.cotizaciones}</strong></td>
-              <td class="efectivas"><strong>${m.efectivas}</strong></td>
-              <td><strong>${this.formatearMoneda(m.ingresos)}</strong></td>
-              <td class="${m.crecimiento > 0 ? 'positivo' : 'negativo'}">
-                <strong>${m.crecimiento > 0 ? '+' : ''}${m.crecimiento}%</strong>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+    // Headers
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .fillColor('#fff');
     
-    return resumen + tabla;
+    headers.forEach((header, i) => {
+      const x = startX + (i * colWidth);
+      // Fondo azul para headers
+      doc.rect(x, startY, colWidth, rowHeight)
+         .fillAndStroke('#3498db', '#3498db');
+      
+      doc.text(header, x + 5, startY + 6, {
+        width: colWidth - 10,
+        align: 'left'
+      });
+    });
+    
+    // Filas
+    doc.fillColor('#000')
+       .font('Helvetica');
+    
+    rows.forEach((row, rowIndex) => {
+      const y = startY + rowHeight + (rowIndex * rowHeight);
+      
+      // Alternar colores de fila
+      if (rowIndex % 2 === 1) {
+        doc.rect(startX, y, colWidth * headers.length, rowHeight)
+           .fillAndStroke('#f8f9fa', '#f8f9fa');
+      }
+      
+      row.forEach((cell, colIndex) => {
+        const x = startX + (colIndex * colWidth);
+        doc.fontSize(9)
+           .fillColor('#000')
+           .text(cell.toString(), x + 5, y + 6, {
+             width: colWidth - 10,
+             align: 'left'
+           });
+      });
+      
+      // Verificar si necesitamos nueva página
+      if (y > 700) {
+        doc.addPage();
+        return false; // Salir del loop
+      }
+    });
+    
+    doc.y = startY + rowHeight + (rows.length * rowHeight) + 20;
   }
   
   // Métodos auxiliares
