@@ -7,6 +7,7 @@ const router = express.Router();
 
 // Rutas públicas
 router.post('/login', validate(schemas.login), authController.login);
+router.post('/forgot-password', validate(schemas.forgotPassword), authController.forgotPassword); // <- CON VALIDACIÓN
 
 // Rutas protegidas
 router.post('/logout', authenticateToken, authController.logout);

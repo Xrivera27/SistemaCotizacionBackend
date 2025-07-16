@@ -30,26 +30,38 @@ const validate = (schema) => {
 // Esquemas de validación
 const schemas = {
   // ==================== AUTH ====================
-  // Login
-  login: Joi.object({
-    usuario: Joi.string()
-      .min(3)
-      .max(100)
-      .required()
-      .messages({
-        'string.empty': 'El usuario es requerido',
-        'string.min': 'El usuario debe tener al menos 3 caracteres',
-        'string.max': 'El usuario no puede tener más de 100 caracteres'
-      }),
-    password: Joi.string()
-      .min(6)
-      .required()
-      .messages({
-        'string.empty': 'La contraseña es requerida',
-        'string.min': 'La contraseña debe tener al menos 6 caracteres'
-      })
-  }),
+// Login
+login: Joi.object({
+  usuario: Joi.string()
+    .min(3)
+    .max(100)
+    .required()
+    .messages({
+      'string.empty': 'El usuario es requerido',
+      'string.min': 'El usuario debe tener al menos 3 caracteres',
+      'string.max': 'El usuario no puede tener más de 100 caracteres'
+    }),
+  password: Joi.string()
+    .min(6)
+    .required()
+    .messages({
+      'string.empty': 'La contraseña es requerida',
+      'string.min': 'La contraseña debe tener al menos 6 caracteres'
+    })
+}),
 
+// NUEVO: Forgot Password
+forgotPassword: Joi.object({
+  email: Joi.string()
+    .email()
+    .max(191)
+    .required()
+    .messages({
+      'string.email': 'Debe ser un correo electrónico válido',
+      'string.empty': 'El email es requerido',
+      'string.max': 'El email no puede tener más de 191 caracteres'
+    })
+}),
   // ==================== CONFIGURACIÓN DE USUARIO ====================
   // Actualizar información personal
   updateInformacionPersonal: Joi.object({
@@ -1346,6 +1358,7 @@ const validateCreateUsuario = validate(schemas.createUsuario);
 const validateUpdateUsuario = validate(schemas.updateUsuario);
 const validateCambiarContrasena = validate(schemas.cambiarContrasena);
 const validateUpdateInformacionPersonal = validate(schemas.updateInformacionPersonal);
+const validateForgotPassword = validate(schemas.forgotPassword);
 
 module.exports = {
  validate,
@@ -1367,5 +1380,6 @@ module.exports = {
  validateCreateUsuario,
  validateUpdateUsuario,
  validateCambiarContrasena,
- validateUpdateInformacionPersonal
+ validateUpdateInformacionPersonal,
+ validateForgotPassword,
 };
