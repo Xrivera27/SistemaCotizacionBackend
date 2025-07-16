@@ -1,12 +1,12 @@
 // controllers/cotizacionController.js
-const { Cotizacion, CotizacionDetalle, Cliente, Usuario, Servicio, Categoria } = require('../models');
+const { Cotizacion, CotizacionDetalle, Cliente, Usuario, Servicio, Categoria, UnidadMedida } = require('../models');
 const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
 class CotizacionController {
-  // Obtener todas las cotizaciones con filtros y paginación
+  // 🔧 CORREGIDO: getCotizaciones con relación directa a UnidadMedida
   async getCotizaciones(req, res) {
     try {
       const {
@@ -98,7 +98,7 @@ class CotizacionController {
         }
       }
 
-      // Obtener cotizaciones con paginación
+      // 🔧 CORREGIDO: Include actualizado con relación directa a UnidadMedida
       const { count, rows: cotizaciones } = await Cotizacion.findAndCountAll({
         where: whereConditions,
         include: [
@@ -125,9 +125,22 @@ class CotizacionController {
                 include: [
                   {
                     model: Categoria,
-                    as: 'categoria'
+                    as: 'categoria',
+                    include: [
+                      {
+                        model: UnidadMedida,
+                        as: 'unidad_medida',
+                        attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                      }
+                    ]
                   }
                 ]
+              },
+              // 🆕 NUEVO: Include directo de UnidadMedida en CotizacionDetalle
+              {
+                model: UnidadMedida,
+                as: 'unidad_medida',
+                attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
               }
             ]
           }
@@ -138,12 +151,10 @@ class CotizacionController {
         distinct: true
       });
 
-      // 🆕 FORMATEAR DATOS CORREGIDO - INCLUYE CANTIDAD_ANOS
+      // 🔧 FORMATEO ACTUALIZADO con prioridad a relación directa
       const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
-        // Mantener compatibilidad: array de nombres para servicios básicos
         const serviciosNombres = cotizacion.detalles.map(detalle => detalle.servicio.nombre);
         
-        // Agregar detalles completos de servicios CON cantidad_anos
         const serviciosDetalles = cotizacion.detalles.map(detalle => ({
           id: detalle.servicios_id,
           nombre: detalle.servicio.nombre,
@@ -152,7 +163,20 @@ class CotizacionController {
           cantidadEquipos: detalle.cantidad_equipos || 0,
           cantidadServicios: detalle.cantidad_servicios || 0,
           cantidadGB: detalle.cantidad_gb || 0,
-          cantidadAnos: detalle.cantidad_anos || 1,  // 🆕 CAMPO CANTIDAD AÑOS
+          cantidadAnos: detalle.cantidad_anos || 1,
+          // 🔧 CORREGIDO: Usar relación directa primero, fallback a categoria
+          unidadMedida: detalle.unidad_medida ? {
+            id: detalle.unidad_medida.unidades_medida_id,
+            nombre: detalle.unidad_medida.nombre,
+            abreviacion: detalle.unidad_medida.abreviacion,
+            tipo: detalle.unidad_medida.tipo
+          } : (detalle.servicio.categoria?.unidad_medida ? {
+            id: detalle.servicio.categoria.unidad_medida.unidades_medida_id,
+            nombre: detalle.servicio.categoria.unidad_medida.nombre,
+            abreviacion: detalle.servicio.categoria.unidad_medida.abreviacion,
+            tipo: detalle.servicio.categoria.unidad_medida.tipo
+          } : null),
+          cantidad: detalle.cantidad || 1,
           precioUsado: parseFloat(detalle.precio_usado),
           subtotal: parseFloat(detalle.subtotal)
         }));
@@ -163,8 +187,8 @@ class CotizacionController {
             nombre: cotizacion.cliente.nombre_empresa,
             email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado'
           },
-          servicios: serviciosNombres, // Para compatibilidad
-          serviciosDetalles: serviciosDetalles, // 🆕 DETALLES COMPLETOS CON AÑOS
+          servicios: serviciosNombres,
+          serviciosDetalles: serviciosDetalles,
           fechaCreacion: cotizacion.fecha_creacion,
           vendedor: {
             nombre: cotizacion.vendedor.nombre_completo,
@@ -271,142 +295,10 @@ class CotizacionController {
     }
   }
 
-// En cotizacionController.js - método getCotizacionById
-async getCotizacionById(req, res) {
-  try {
-    const { id } = req.params;
-
-    const cotizacion = await Cotizacion.findByPk(id, {
-      include: [
-        {
-          model: Cliente,
-          as: 'cliente'
-        },
-        {
-          model: Usuario,
-          as: 'vendedor',
-          attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
-        },
-        {
-          model: CotizacionDetalle,
-          as: 'detalles',
-          include: [
-            {
-              model: Servicio,
-              as: 'servicio',
-              include: [
-                {
-                  model: Categoria,
-                  as: 'categoria'
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    });
-
-    if (!cotizacion) {
-      return res.status(404).json({
-        success: false,
-        message: 'Cotización no encontrada'
-      });
-    }
-
-    // 🆕 BUSCAR INFORMACIÓN DE AUDITORÍA
-    let usuarioAprobador = null;
-    let usuarioRechazador = null;
-
-    if (cotizacion.aprobado_por) {
-      usuarioAprobador = await Usuario.findByPk(cotizacion.aprobado_por, {
-        attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
-      });
-    }
-
-    if (cotizacion.rechazado_por) {
-      usuarioRechazador = await Usuario.findByPk(cotizacion.rechazado_por, {
-        attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
-      });
-    }
-
-    // Formatear datos para el frontend
-    const cotizacionFormateada = {
-      id: cotizacion.cotizaciones_id,
-      cliente: {
-        nombre: cotizacion.cliente.nombre_empresa,
-        email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado',
-        encargado: cotizacion.cliente.nombre_encargado,
-        telefono: cotizacion.cliente.telefono_empresa,
-        documentoFiscal: cotizacion.cliente.documento_fiscal
-      },
-      servicios: cotizacion.detalles.map(detalle => ({
-        id: detalle.servicios_id,
-        nombre: detalle.servicio.nombre,
-        descripcion: detalle.servicio.descripcion,
-        categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
-        cantidadEquipos: detalle.cantidad_equipos,
-        cantidadServicios: detalle.cantidad_servicios,
-        cantidadGB: detalle.cantidad_gb,
-        cantidadAnos: detalle.cantidad_anos || 1,
-        precioUsado: parseFloat(detalle.precio_usado),
-        subtotal: parseFloat(detalle.subtotal)
-      })),
-      fechaCreacion: cotizacion.fecha_creacion,
-      vendedor: {
-        nombre: cotizacion.vendedor.nombre_completo,
-        rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
-      },
-      estado: cotizacion.estado,
-      total: parseFloat(cotizacion.total),
-      pdfGenerado: cotizacion.pdf_generado,
-      comentario: cotizacion.comentario,
-      configuracionPDF: {
-        incluirNombreEncargado: cotizacion.incluir_nombre_encargado,
-        incluirNombreEmpresa: cotizacion.incluir_nombre_empresa,
-        incluirDocumentoFiscal: cotizacion.incluir_documento_fiscal,
-        incluirTelefonoEmpresa: cotizacion.incluir_telefono_empresa,
-        incluirCorreoEmpresa: cotizacion.incluir_correo_empresa,
-        tipoPrecioPDF: cotizacion.tipo_precio_pdf
-      },
-      // 🆕 INFORMACIÓN DE AUDITORÍA
-      auditoria: {
-        aprobadoPor: usuarioAprobador ? {
-          id: usuarioAprobador.usuarios_id,
-          nombre: usuarioAprobador.nombre_completo,
-          rol: CotizacionController.formatearRol(usuarioAprobador.tipo_usuario)
-        } : null,
-        aprobadoPorNombre: cotizacion.aprobado_por_nombre, // Del campo directo
-        fechaAprobacion: cotizacion.fecha_aprobacion,
-        rechazadoPor: usuarioRechazador ? {
-          id: usuarioRechazador.usuarios_id,
-          nombre: usuarioRechazador.nombre_completo,
-          rol: CotizacionController.formatearRol(usuarioRechazador.tipo_usuario)
-        } : null,
-        rechazadoPorNombre: cotizacion.rechazado_por_nombre, // Del campo directo
-        fechaRechazo: cotizacion.fecha_rechazo
-      }
-    };
-
-    res.json({
-      success: true,
-      cotizacion: cotizacionFormateada
-    });
-
-  } catch (error) {
-    console.error('Error al obtener cotización:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
-      error: error.message
-    });
-  }
-}
-
-  // Generar PDF de cotización
-  async generarPDF(req, res) {
+  // 🔧 CORREGIDO: getCotizacionById con nueva estructura
+  async getCotizacionById(req, res) {
     try {
       const { id } = req.params;
-      const { tipo = 'copia' } = req.query;
 
       const cotizacion = await Cotizacion.findByPk(id, {
         include: [
@@ -416,7 +308,8 @@ async getCotizacionById(req, res) {
           },
           {
             model: Usuario,
-            as: 'vendedor'
+            as: 'vendedor',
+            attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
           },
           {
             model: CotizacionDetalle,
@@ -428,9 +321,22 @@ async getCotizacionById(req, res) {
                 include: [
                   {
                     model: Categoria,
-                    as: 'categoria'
+                    as: 'categoria',
+                    include: [
+                      {
+                        model: UnidadMedida,
+                        as: 'unidad_medida',
+                        attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                      }
+                    ]
                   }
                 ]
+              },
+              // 🆕 NUEVO: Include directo de UnidadMedida
+              {
+                model: UnidadMedida,
+                as: 'unidad_medida',
+                attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
               }
             ]
           }
@@ -444,264 +350,123 @@ async getCotizacionById(req, res) {
         });
       }
 
-      const pdfBuffer = await CotizacionController.prototype.generarPDFCotizacion.call(this, cotizacion, tipo);
+      // Buscar información de auditoría
+      let usuarioAprobador = null;
+      let usuarioRechazador = null;
 
-      const numeroDocumento = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
-      const tipoTexto = tipo === 'copia' ? 'Copia' : 'Original';
-      const nombreArchivo = `${numeroDocumento}_${tipoTexto}.pdf`;
+      if (cotizacion.aprobado_por) {
+        usuarioAprobador = await Usuario.findByPk(cotizacion.aprobado_por, {
+          attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+        });
+      }
 
-      // Marcar PDF como generado
-      await cotizacion.update({ pdf_generado: true });
+      if (cotizacion.rechazado_por) {
+        usuarioRechazador = await Usuario.findByPk(cotizacion.rechazado_por, {
+          attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+        });
+      }
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
-      res.send(pdfBuffer);
+      // 🔧 FORMATEAR DATOS ACTUALIZADO con prioridad a relación directa
+      const cotizacionFormateada = {
+        id: cotizacion.cotizaciones_id,
+        cliente: {
+          nombre: cotizacion.cliente.nombre_empresa,
+          email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado',
+          encargado: cotizacion.cliente.nombre_encargado,
+          telefono: cotizacion.cliente.telefono_empresa,
+          documentoFiscal: cotizacion.cliente.documento_fiscal
+        },
+        servicios: cotizacion.detalles.map(detalle => ({
+          id: detalle.servicios_id,
+          nombre: detalle.servicio.nombre,
+          descripcion: detalle.servicio.descripcion,
+          categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
+          cantidadEquipos: detalle.cantidad_equipos,
+          cantidadServicios: detalle.cantidad_servicios,
+          cantidadGB: detalle.cantidad_gb,
+          cantidadAnos: detalle.cantidad_anos || 1,
+          // 🔧 CORREGIDO: Usar relación directa primero, fallback a categoria
+          unidadMedida: detalle.unidad_medida ? {
+            id: detalle.unidad_medida.unidades_medida_id,
+            nombre: detalle.unidad_medida.nombre,
+            abreviacion: detalle.unidad_medida.abreviacion,
+            tipo: detalle.unidad_medida.tipo
+          } : (detalle.servicio.categoria?.unidad_medida ? {
+            id: detalle.servicio.categoria.unidad_medida.unidades_medida_id,
+            nombre: detalle.servicio.categoria.unidad_medida.nombre,
+            abreviacion: detalle.servicio.categoria.unidad_medida.abreviacion,
+            tipo: detalle.servicio.categoria.unidad_medida.tipo
+          } : null),
+          cantidad: detalle.cantidad || 1,
+          precioUsado: parseFloat(detalle.precio_usado),
+          subtotal: parseFloat(detalle.subtotal)
+        })),
+        fechaCreacion: cotizacion.fecha_creacion,
+        vendedor: {
+          nombre: cotizacion.vendedor.nombre_completo,
+          rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
+        },
+        estado: cotizacion.estado,
+        total: parseFloat(cotizacion.total),
+        pdfGenerado: cotizacion.pdf_generado,
+        comentario: cotizacion.comentario,
+        configuracionPDF: {
+          incluirNombreEncargado: cotizacion.incluir_nombre_encargado,
+          incluirNombreEmpresa: cotizacion.incluir_nombre_empresa,
+          incluirDocumentoFiscal: cotizacion.incluir_documento_fiscal,
+          incluirTelefonoEmpresa: cotizacion.incluir_telefono_empresa,
+          incluirCorreoEmpresa: cotizacion.incluir_correo_empresa,
+          tipoPrecioPDF: cotizacion.tipo_precio_pdf
+        },
+        // Información de auditoría
+        auditoria: {
+          aprobadoPor: usuarioAprobador ? {
+            id: usuarioAprobador.usuarios_id,
+            nombre: usuarioAprobador.nombre_completo,
+            rol: CotizacionController.formatearRol(usuarioAprobador.tipo_usuario)
+          } : null,
+          aprobadoPorNombre: cotizacion.aprobado_por_nombre,
+          fechaAprobacion: cotizacion.fecha_aprobacion,
+          rechazadoPor: usuarioRechazador ? {
+            id: usuarioRechazador.usuarios_id,
+            nombre: usuarioRechazador.nombre_completo,
+            rol: CotizacionController.formatearRol(usuarioRechazador.tipo_usuario)
+          } : null,
+          rechazadoPorNombre: cotizacion.rechazado_por_nombre,
+          fechaRechazo: cotizacion.fecha_rechazo
+        }
+      };
+
+      res.json({
+        success: true,
+        cotizacion: cotizacionFormateada
+      });
 
     } catch (error) {
-      console.error('Error al generar PDF:', error);
+      console.error('Error al obtener cotización:', error);
       res.status(500).json({
         success: false,
-        message: 'Error al generar PDF',
+        message: 'Error interno del servidor',
         error: error.message
       });
     }
   }
 
-// Método actualizado y corregido completo en cotizacionController.js
-async cambiarEstado(req, res) {
- try {
-   const { id } = req.params;
-   const { estado, motivo_rechazo } = req.body;
-   
-   // 🔧 CORREGIDO: Usar id del token (ya que tienes id: 5 en el token)
-   const usuarioId = req.user.id;
-   const usuarioNombre = req.user.nombre_completo; // 🆕 Obtener nombre del token
-   
-   console.log('🔍 Debug - Usuario ID:', usuarioId, 'Nombre:', usuarioNombre);
-
-   // ✅ Estados que puede recibir desde las rutas
-   const estadosValidos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'efectiva', 'rechazada'];
-   
-   if (!estadosValidos.includes(estado)) {
-     return res.status(400).json({
-       success: false,
-       message: 'Estado no válido'
-     });
-   }
-
-   const cotizacion = await Cotizacion.findByPk(id);
-   if (!cotizacion) {
-     return res.status(404).json({
-       success: false,
-       message: 'Cotización no encontrada'
-     });
-   }
-
-   // Preparar datos para actualizar
-   const updateData = { 
-     estado // Por defecto mantiene el estado recibido
-   };
-
-   // 🔄 Lógica del flujo corregida
-   switch (estado) {
-     case 'aprobado':
-       // SuperUsuario aprueba: pendiente_aprobacion → pendiente
-       if (cotizacion.estado === 'pendiente_aprobacion') {
-         updateData.estado = 'pendiente';  // ✅ Cambia a pendiente
-         updateData.aprobado_por = usuarioId; // ID para referencia
-         updateData.aprobado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
-         updateData.fecha_aprobacion = new Date();
-         
-         // 🔧 LIMPIAR CAMPOS DE RECHAZO ANTERIOR SI EXISTÍAN
-         updateData.rechazado_por = null;
-         updateData.rechazado_por_nombre = null; // 🆕 Limpiar nombre también
-         updateData.fecha_rechazo = null;
-       } else {
-         updateData.estado = cotizacion.estado;
-       }
-       break;
-
-     case 'rechazado':
-       // SuperUsuario rechaza: pendiente_aprobacion → rechazada
-       if (cotizacion.estado === 'pendiente_aprobacion') {
-         updateData.estado = 'rechazada';  // ✅ Cambia a rechazada
-         updateData.rechazado_por = usuarioId; // ID para referencia
-         updateData.rechazado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
-         updateData.fecha_rechazo = new Date();
-         if (motivo_rechazo && motivo_rechazo.trim()) {
-           updateData.comentario = motivo_rechazo.trim();
-         }
-         
-         // 🔧 LIMPIAR CAMPOS DE APROBACIÓN ANTERIOR SI EXISTÍAN
-         updateData.aprobado_por = null;
-         updateData.aprobado_por_nombre = null; // 🆕 Limpiar nombre también
-         updateData.fecha_aprobacion = null;
-       } else if (cotizacion.estado === 'pendiente') {
-         // También permitir cancelar desde pendiente
-         updateData.estado = 'rechazada';  // ✅ Cambia a rechazada
-         updateData.rechazado_por = usuarioId; // ID para referencia
-         updateData.rechazado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
-         updateData.fecha_rechazo = new Date();
-         if (motivo_rechazo && motivo_rechazo.trim()) {
-           updateData.comentario = motivo_rechazo.trim();
-         }
-         
-         // 🔧 LIMPIAR CAMPOS DE APROBACIÓN ANTERIOR SI EXISTÍAN
-         updateData.aprobado_por = null;
-         updateData.aprobado_por_nombre = null; // 🆕 Limpiar nombre también
-         updateData.fecha_aprobacion = null;
-       } else {
-         updateData.estado = cotizacion.estado;
-       }
-       break;
-
-     case 'efectiva':
-       // Cliente acepta: pendiente → efectiva
-       if (cotizacion.estado === 'pendiente') {
-         updateData.estado = 'efectiva';  // ✅ Cambia a efectiva
-         updateData.aprobado_por = usuarioId; // ID para referencia
-         updateData.aprobado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
-         updateData.fecha_aprobacion = new Date();
-         
-         // 🔧 LIMPIAR CAMPOS DE RECHAZO ANTERIOR SI EXISTÍAN
-         updateData.rechazado_por = null;
-         updateData.rechazado_por_nombre = null; // 🆕 Limpiar nombre también
-         updateData.fecha_rechazo = null;
-       } else {
-         updateData.estado = cotizacion.estado;
-       }
-       break;
-
-     case 'rechazada':
-       // Cambio directo a rechazada (para casos específicos)
-       updateData.estado = 'rechazada';  // ✅ Directo a rechazada
-       updateData.rechazado_por = usuarioId; // ID para referencia
-       updateData.rechazado_por_nombre = usuarioNombre; // 🆕 Nombre para mostrar
-       updateData.fecha_rechazo = new Date();
-       if (motivo_rechazo && motivo_rechazo.trim()) {
-         updateData.comentario = motivo_rechazo.trim();
-       }
-       
-       // 🔧 LIMPIAR CAMPOS DE APROBACIÓN ANTERIOR SI EXISTÍAN
-       updateData.aprobado_por = null;
-       updateData.aprobado_por_nombre = null; // 🆕 Limpiar nombre también
-       updateData.fecha_aprobacion = null;
-       break;
-
-     case 'pendiente':
-       // Cambio directo a pendiente
-       updateData.estado = 'pendiente';  // ✅ Directo a pendiente
-       break;
-
-     case 'pendiente_aprobacion':
-       // Cambio directo a pendiente_aprobacion
-       updateData.estado = 'pendiente_aprobacion';  // ✅ Directo a pendiente_aprobacion
-       break;
-
-     default:
-       updateData.estado = cotizacion.estado;
-       break;
-   }
-
-   console.log('🔍 Debug - Update Data:', updateData);
-
-   // Actualizar la cotización en la base de datos
-   const result = await cotizacion.update(updateData);
-
-   console.log('🔍 Debug - Cotización actualizada:', result.toJSON());
-
-   // ✅ Mensajes personalizados según la acción realizada
-   let mensaje = '';
-   const estadoAnterior = cotizacion.estado;
-   const estadoNuevo = updateData.estado;
-
-   if (estado === 'aprobado' && estadoAnterior === 'pendiente_aprobacion' && estadoNuevo === 'pendiente') {
-     mensaje = 'Cotización aprobada exitosamente. Ahora está pendiente de respuesta del cliente.';
-   } else if (estado === 'rechazado' && estadoAnterior === 'pendiente_aprobacion' && estadoNuevo === 'rechazada') {
-     mensaje = 'Cotización rechazada exitosamente.';
-   } else if (estado === 'rechazado' && estadoAnterior === 'pendiente' && estadoNuevo === 'rechazada') {
-     mensaje = 'Cotización cancelada exitosamente.';
-   } else if (estado === 'efectiva' && estadoAnterior === 'pendiente' && estadoNuevo === 'efectiva') {
-     mensaje = 'Cotización marcada como efectiva exitosamente.';
-   } else if (estadoAnterior !== estadoNuevo) {
-     mensaje = `Estado cambiado de ${estadoAnterior} a ${estadoNuevo} exitosamente.`;
-   } else {
-     mensaje = 'Estado actualizado exitosamente.';
-   }
-
-   res.json({
-     success: true,
-     message: mensaje,
-     cotizacion: {
-       id: cotizacion.cotizaciones_id,
-       estadoAnterior: estadoAnterior,
-       estadoNuevo: estadoNuevo,
-       // 🆕 INFORMACIÓN DE AUDITORÍA CON NOMBRES Y IDS
-       auditoria: {
-         aprobadoPor: updateData.aprobado_por ? {
-           id: updateData.aprobado_por,
-           nombre: updateData.aprobado_por_nombre
-         } : null,
-         fechaAprobacion: updateData.fecha_aprobacion,
-         rechazadoPor: updateData.rechazado_por ? {
-           id: updateData.rechazado_por,
-           nombre: updateData.rechazado_por_nombre
-         } : null,
-         fechaRechazo: updateData.fecha_rechazo
-       },
-       comentario: updateData.comentario
-     }
-   });
-
- } catch (error) {
-   console.error('Error al cambiar estado:', error);
-   
-   res.status(500).json({
-     success: false,
-     message: 'Error interno del servidor',
-     error: process.env.NODE_ENV === 'development' ? error.message : undefined
-   });
- }
-}
-// Método nuevo en cotizacionController.js
-async getCotizacionesPendientesAprobacion(req, res) {
+  // Agregar este método en CotizacionController después del método getCotizacionById
+async generarPDF(req, res) {
   try {
-    const {
-      page = 1,
-      limit = 25,
-      search = ''
-    } = req.query;
+    const { id } = req.params;
+    const { tipo = 'copia' } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    let whereConditions = {
-      estado: 'pendiente_aprobacion'
-    };
-    
-    // Filtro de búsqueda
-    if (search) {
-      const searchConditions = {
-        [Op.or]: [
-          { '$cliente.nombre_empresa$': { [Op.like]: `%${search}%` } },
-          { '$cliente.nombre_encargado$': { [Op.like]: `%${search}%` } },
-          { '$vendedor.nombre_completo$': { [Op.like]: `%${search}%` } }
-        ]
-      };
-      whereConditions = { ...whereConditions, ...searchConditions };
-    }
-
-    const { count, rows: cotizaciones } = await Cotizacion.findAndCountAll({
-      where: whereConditions,
+    const cotizacion = await Cotizacion.findByPk(id, {
       include: [
         {
           model: Cliente,
-          as: 'cliente',
-          required: true
+          as: 'cliente'
         },
         {
           model: Usuario,
-          as: 'vendedor',
-          required: true,
-          attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+          as: 'vendedor'
         },
         {
           model: CotizacionDetalle,
@@ -713,444 +478,876 @@ async getCotizacionesPendientesAprobacion(req, res) {
               include: [
                 {
                   model: Categoria,
-                  as: 'categoria'
+                  as: 'categoria',
+                  include: [
+                    {
+                      model: UnidadMedida,
+                      as: 'unidad_medida',
+                      attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                    }
+                  ]
                 }
               ]
+            },
+            // 🆕 NUEVO: Include directo para PDF
+            {
+              model: UnidadMedida,
+              as: 'unidad_medida',
+              attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
             }
           ]
         }
-      ],
-      order: [['fecha_creacion', 'ASC']], // Las más antiguas primero
-      limit: parseInt(limit),
-      offset: offset,
-      distinct: true
+      ]
     });
 
-    // Formatear datos igual que getCotizaciones pero con prioridad
-    const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
-      const serviciosDetalles = cotizacion.detalles.map(detalle => ({
-        id: detalle.servicios_id,
-        nombre: detalle.servicio.nombre,
-        descripcion: detalle.servicio.descripcion,
-        categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
-        cantidadEquipos: detalle.cantidad_equipos || 0,
-        cantidadServicios: detalle.cantidad_servicios || 0,
-        cantidadGB: detalle.cantidad_gb || 0,
-        cantidadAnos: detalle.cantidad_anos || 1,
-        precioUsado: parseFloat(detalle.precio_usado),
-        subtotal: parseFloat(detalle.subtotal),
-        // Agregar precios de referencia para comparación
-        precioMinimo: parseFloat(detalle.servicio.precio_minimo),
-        precioRecomendado: parseFloat(detalle.servicio.precio_recomendado)
-      }));
-
-      return {
-        id: cotizacion.cotizaciones_id,
-        cliente: {
-          nombre: cotizacion.cliente.nombre_empresa,
-          encargado: cotizacion.cliente.nombre_encargado,
-          email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado'
-        },
-        serviciosDetalles: serviciosDetalles,
-        fechaCreacion: cotizacion.fecha_creacion,
-        vendedor: {
-          nombre: cotizacion.vendedor.nombre_completo,
-          rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
-        },
-        estado: cotizacion.estado,
-        total: parseFloat(cotizacion.total),
-        comentario: cotizacion.comentario,
-        // Indicador de urgencia (días esperando aprobación)
-        diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24))
-      };
-    });
-
-    const totalPages = Math.ceil(count / parseInt(limit));
-    const pagination = {
-      currentPage: parseInt(page),
-      totalPages: totalPages,
-      totalItems: count,
-      itemsPerPage: parseInt(limit),
-      hasNextPage: parseInt(page) < totalPages,
-      hasPrevPage: parseInt(page) > 1
-    };
-
-    res.json({
-      success: true,
-      cotizaciones: cotizacionesFormateadas,
-      pagination: pagination
-    });
-
-  } catch (error) {
-    console.error('Error al obtener cotizaciones pendientes:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
-      error: error.message
-    });
-  }
-}
-
-// Método nuevo en cotizacionController.js
-// Método getEstadisticasSuper completo con cambios aplicados
-async getEstadisticasSuper(req, res) { 
-  try {
-    // Estadísticas generales
-    const estadisticasEstado = await Cotizacion.findAll({
-      attributes: [
-        'estado',
-        [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
-      ],
-      group: ['estado']
-    });
-
-    // Cotizaciones pendientes de aprobación con urgencia
-    const pendientesAprobacion = await Cotizacion.findAll({
-      where: { estado: 'pendiente_aprobacion' },
-      attributes: [
-        'cotizaciones_id',
-        'fecha_creacion',
-        [Cotizacion.sequelize.literal('DATEDIFF(NOW(), fecha_creacion)'), 'dias_espera']
-      ],
-      order: [['fecha_creacion', 'ASC']]
-    });
-
-    // Formatear estadísticas
-    const stats = {
-      total: 0,
-      pendientesAprobacion: 0,
-      pendientes: 0,
-      aprobadas: 0,
-      rechazadas: 0,
-      urgentes: 0 // Más de 3 días esperando aprobación
-    };
-
-    estadisticasEstado.forEach(stat => {
-      const cantidad = parseInt(stat.dataValues.cantidad);
-      stats.total += cantidad;
-
-      // 🔧 CAMBIO 3: Estados corregidos para coincidir con la BD
-      switch (stat.estado) {
-        case 'pendiente_aprobacion':
-          stats.pendientesAprobacion = cantidad;
-          break;
-        case 'pendiente':
-          stats.pendientes = cantidad;
-          break;
-        case 'efectiva':
-          stats.aprobadas = cantidad;
-          break;
-        case 'rechazada':
-          stats.rechazadas = cantidad;
-          break;
-      }
-    });
-
-    // Contar urgentes (más de 3 días)
-    stats.urgentes = pendientesAprobacion.filter(p => p.dataValues.dias_espera > 3).length;
-
-    res.json({
-      success: true,
-      estadisticas: stats,
-      pendientesDetalle: pendientesAprobacion.map(p => ({
-        id: p.cotizaciones_id,
-        diasEspera: p.dataValues.dias_espera
-      }))
-    });
-
-  } catch (error) {
-    console.error('Error al obtener estadísticas super:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor',
-      error: error.message
-    });
-  }
-}
-
-  // Obtener lista de vendedores únicos
-  async getVendedores(req, res) {
-    try {
-      const vendedores = await Usuario.findAll({
-        attributes: ['nombre_completo'],
-        include: [{
-          model: Cotizacion,
-          as: 'cotizaciones',
-          required: true,
-          attributes: []
-        }],
-        group: ['usuarios_id', 'nombre_completo'],
-        order: [['nombre_completo', 'ASC']]
-      });
-
-      const vendedoresUnicos = vendedores.map(v => v.nombre_completo);
-
-      res.json({
-        success: true,
-        vendedores: vendedoresUnicos
-      });
-
-    } catch (error) {
-      console.error('Error al obtener vendedores:', error);
-      res.status(500).json({
+    if (!cotizacion) {
+      return res.status(404).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: error.message
+        message: 'Cotización no encontrada'
       });
     }
+
+    // ✅ LLAMAR AL MÉTODO ACTUALIZADO CON AGRUPACIÓN
+    const pdfBuffer = await this.generarPDFCotizacion(cotizacion, tipo);
+
+    const numeroDocumento = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
+    const tipoTexto = tipo === 'copia' ? 'Copia' : 'Original';
+    const nombreArchivo = `${numeroDocumento}_${tipoTexto}.pdf`;
+
+    // Marcar PDF como generado
+    await cotizacion.update({ pdf_generado: true });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error al generar PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF',
+      error: error.message
+    });
   }
+}
+// 🔧 MÉTODO COMPLETO ACTUALIZADO SIGUIENDO LA ESTRUCTURA DE PDFGenerator
+async generarPDFCotizacion(cotizacion, tipo) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 50 });
+      const chunks = [];
 
-  // 🆕 MÉTODO CORREGIDO PARA GENERAR PDF CON AÑOS
-  async generarPDFCotizacion(cotizacion, tipo) {
-    return new Promise((resolve, reject) => {
-      try {
-        const doc = new PDFDocument({ margin: 50 });
-        const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-        doc.on('data', chunk => chunks.push(chunk));
-        doc.on('end', () => resolve(Buffer.concat(chunks)));
+      // Configurar colores
+      const primaryColor = '#2c3e50';
+      const secondaryColor = '#3498db';
+      const accentColor = tipo === 'copia' ? '#f39c12' : '#27ae60';
 
-        // Configurar colores y fuentes
-        const primaryColor = '#2c3e50';
-        const secondaryColor = '#3498db';
-        const accentColor = tipo === 'copia' ? '#f39c12' : '#27ae60';
+      let yPosition = 50;
 
-        // HEADER
-        doc.fontSize(24)
-           .fillColor(primaryColor)
-           .text('EMPRESA SERVICIOS', 50, 50);
+      // HEADER MEJORADO
+      doc.fontSize(24)
+         .fillColor(primaryColor)
+         .text('PERDOMO Y ASOCIADOS S. DE R.L', 50, yPosition);
 
-        doc.fontSize(10)
-           .fillColor('#7f8c8d')
-           .text('Dirección de la empresa', 50, 80)
-           .text('Teléfono: +504 1234-5678 | Email: contacto@empresa.com', 50, 95)
-           .text('www.empresaservicios.com', 50, 110);
+      doc.fontSize(10)
+         .fillColor('#7f8c8d')
+         .text('Dirección de la empresa: Col. Sauce', 50, yPosition + 30)
+         .text('Teléfono: +504 | Email: perdomoyasociados@gmail.com', 50, yPosition + 45)
+         .text('www.perdomoyasociados.com', 50, yPosition + 60);
 
-        // Marca de documento (COPIA/ORIGINAL)
-        const marcaTexto = tipo === 'copia' ? 'COPIA' : '';
-        doc.fontSize(14)
-           .fillColor(accentColor)
-           .text(marcaTexto, 450, 50, { width: 100, align: 'right' });
+      // Marca de documento (COPIA/ORIGINAL)
+      const marcaTexto = tipo === 'copia' ? 'COPIA' : '';
+      doc.fontSize(14)
+         .fillColor(accentColor)
+         .text(marcaTexto, 450, 50, { width: 100, align: 'right' });
 
-        // Línea separadora
-        doc.strokeColor('#ecf0f1')
-           .lineWidth(2)
-           .moveTo(50, 140)
-           .lineTo(550, 140)
-           .stroke();
+      yPosition += 90;
 
-        // TÍTULO Y NÚMERO DE COTIZACIÓN
-        doc.fontSize(18)
-           .fillColor(primaryColor)
-           .text('COTIZACIÓN', 50, 160, { align: 'center' });
+      // Línea separadora moderna
+      doc.strokeColor('#ecf0f1')
+         .lineWidth(2)
+         .moveTo(50, yPosition)
+         .lineTo(550, yPosition)
+         .stroke();
 
-        const numeroCotizacion = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
-        doc.fontSize(14)
-           .fillColor(secondaryColor)
-           .text(numeroCotizacion, 50, 185, { align: 'center' });
+      yPosition += 20;
 
-        let yPosition = 220;
+      // TÍTULO Y NÚMERO DE COTIZACIÓN CENTRADO
+      doc.fontSize(18)
+         .fillColor(primaryColor)
+         .text('COTIZACIÓN', 50, yPosition, { align: 'center' });
 
-        // INFORMACIÓN DEL CLIENTE
-        doc.fontSize(12)
-           .fillColor(primaryColor)
-           .text('DATOS DEL CLIENTE:', 50, yPosition);
+      yPosition += 25;
 
-        yPosition += 15;
+      const numeroCotizacion = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
+      doc.fontSize(14)
+         .fillColor(secondaryColor)
+         .text(numeroCotizacion, 50, yPosition, { align: 'center' });
 
-        const incluirInfo = {
-          encargado: cotizacion.incluir_nombre_encargado,
-          empresa: cotizacion.incluir_nombre_empresa,
-          documento: cotizacion.incluir_documento_fiscal,
-          telefono: cotizacion.incluir_telefono_empresa,
-          correo: cotizacion.incluir_correo_empresa
-        };
+      yPosition += 40;
 
-        doc.fontSize(10).fillColor('#555');
+      // INFORMACIÓN DEL CLIENTE
+      doc.fontSize(12)
+         .fillColor(primaryColor)
+         .text('DATOS DEL CLIENTE:', 50, yPosition);
 
-        if (incluirInfo.encargado) {
-          doc.text(`Encargado: ${cotizacion.cliente.nombre_encargado}`, 50, yPosition);
-          yPosition += 12;
-        }
+      yPosition += 15;
 
-        if (incluirInfo.empresa) {
-          doc.text(`Empresa: ${cotizacion.cliente.nombre_empresa}`, 50, yPosition);
-          yPosition += 12;
-        }
+      const incluirInfo = {
+        encargado: cotizacion.incluir_nombre_encargado,
+        empresa: cotizacion.incluir_nombre_empresa,
+        documento: cotizacion.incluir_documento_fiscal,
+        telefono: cotizacion.incluir_telefono_empresa,
+        correo: cotizacion.incluir_correo_empresa
+      };
 
-        if (incluirInfo.documento) {
-          doc.text(`Documento Fiscal: ${cotizacion.cliente.documento_fiscal}`, 50, yPosition);
-          yPosition += 12;
-        }
+      doc.fontSize(10).fillColor('#555');
 
-        if (incluirInfo.telefono && cotizacion.cliente.telefono_empresa) {
-          doc.text(`Teléfono: ${cotizacion.cliente.telefono_empresa}`, 50, yPosition);
-          yPosition += 12;
-        }
+      if (incluirInfo.encargado) {
+        doc.text(`Encargado: ${cotizacion.cliente.nombre_encargado}`, 50, yPosition);
+        yPosition += 12;
+      }
 
-        if (incluirInfo.correo && cotizacion.cliente.correo_empresa) {
-          doc.text(`Email: ${cotizacion.cliente.correo_empresa}`, 50, yPosition);
-          yPosition += 12;
-        }
+      if (incluirInfo.empresa) {
+        doc.text(`Empresa: ${cotizacion.cliente.nombre_empresa}`, 50, yPosition);
+        yPosition += 12;
+      }
 
-        yPosition += 10;
+      if (incluirInfo.documento) {
+        doc.text(`Documento Fiscal: ${cotizacion.cliente.documento_fiscal}`, 50, yPosition);
+        yPosition += 12;
+      }
 
-        // INFORMACIÓN GENERAL
-        doc.text(`Fecha: ${new Date(cotizacion.fecha_creacion).toLocaleDateString('es-HN')}`, 50, yPosition);
-        doc.text(`Vendedor: ${cotizacion.vendedor.nombre_completo}`, 300, yPosition);
-        yPosition += 20;
+      if (incluirInfo.telefono && cotizacion.cliente.telefono_empresa) {
+        doc.text(`Teléfono: ${cotizacion.cliente.telefono_empresa}`, 50, yPosition);
+        yPosition += 12;
+      }
 
-        // Línea separadora
-        doc.strokeColor('#ecf0f1')
-           .lineWidth(1)
-           .moveTo(50, yPosition)
-           .lineTo(550, yPosition)
-           .stroke();
+      if (incluirInfo.correo && cotizacion.cliente.correo_empresa) {
+        doc.text(`Email: ${cotizacion.cliente.correo_empresa}`, 50, yPosition);
+        yPosition += 12;
+      }
 
-        yPosition += 20;
+      yPosition += 10;
 
-        // SERVICIOS
-        doc.fontSize(12)
-           .fillColor(primaryColor)
-           .text('SERVICIOS INCLUIDOS:', 50, yPosition);
+      // INFORMACIÓN GENERAL
+      doc.text(`Fecha: ${new Date(cotizacion.fecha_creacion).toLocaleDateString('es-HN')}`, 50, yPosition);
+      doc.text(`Vendedor: ${cotizacion.vendedor.nombre_completo}`, 300, yPosition);
+      yPosition += 20;
 
-        yPosition += 20;
+      // Línea separadora
+      doc.strokeColor('#ecf0f1')
+         .lineWidth(1)
+         .moveTo(50, yPosition)
+         .lineTo(550, yPosition)
+         .stroke();
 
-        cotizacion.detalles.forEach((detalle, index) => {
-          // Verificar si necesitamos nueva página
-          if (yPosition > 700) {
-            doc.addPage();
-            yPosition = 50;
-          }
+      yPosition += 20;
 
-          // Nombre del servicio
-          doc.fontSize(11)
-             .fillColor(primaryColor)
-             .text(`${index + 1}. ${detalle.servicio.nombre}`, 50, yPosition);
+      // ✅ NUEVA LÓGICA: SERVICIOS INCLUIDOS CON AGRUPACIÓN POR SERVICIO
+      doc.fontSize(12)
+         .fillColor(primaryColor)
+         .text('SERVICIOS INCLUIDOS:', 50, yPosition);
 
-          yPosition += 15;
+      yPosition += 20;
 
-          // Descripción
-          doc.fontSize(9)
-             .fillColor('#666')
-             .text(detalle.servicio.descripcion || 'Sin descripción', 70, yPosition, { width: 400 });
+      // ✅ AGRUPAR DETALLES POR SERVICIO (IGUAL QUE PDFGenerator)
+      const serviciosAgrupados = this._agruparDetallesPorServicio(cotizacion.detalles);
+      
+      console.log('📊 Servicios agrupados para PDF:', Object.keys(serviciosAgrupados).length);
 
-          yPosition += 12;
-
-          // 🆕 CANTIDADES CORREGIDAS - INCLUYE AÑOS
-          let cantidadTexto = '';
-          
-          if (detalle.cantidad_equipos > 0) {
-            cantidadTexto += `Equipos: ${detalle.cantidad_equipos}`;
-          }
-          
-          if (detalle.cantidad_servicios > 0) {
-            if (cantidadTexto) cantidadTexto += ' | ';
-            cantidadTexto += `Servicios: ${detalle.cantidad_servicios}`;
-          }
-          
-          if (detalle.cantidad_gb > 0) {
-            if (cantidadTexto) cantidadTexto += ' | ';
-            cantidadTexto += `GB: ${detalle.cantidad_gb}`;
-          }
-          
-          // 🆕 MOSTRAR AÑOS - SIEMPRE MOSTRAR, NO SOLO SI ES > 1
-          const anos = detalle.cantidad_anos || 1;
-          if (cantidadTexto) cantidadTexto += ' | ';
-          cantidadTexto += `Años: ${anos}`;
-
-          doc.fontSize(10)
-             .fillColor(primaryColor)
-             .text(cantidadTexto, 70, yPosition);
-
-          // Precio alineado a la derecha
-          doc.text(`$${parseFloat(detalle.subtotal).toLocaleString()}`, 450, yPosition, { 
-            width: 100, 
-            align: 'right' 
-          });
-
-          yPosition += 20;
-
-          // Línea separadora
-          doc.strokeColor('#ecf0f1')
-             .lineWidth(0.5)
-             .moveTo(50, yPosition)
-             .lineTo(550, yPosition)
-             .stroke();
-
-          yPosition += 10;
-        });
-
-        // TOTAL
-        yPosition += 10;
-
-        // Caja para el total
-        doc.rect(400, yPosition - 5, 150, 25)
-           .fillAndStroke('#f8f9fa', '#e9ecef');
-
-        doc.fontSize(14)
-           .fillColor('#e74c3c')
-           .text('TOTAL:', 410, yPosition);
-
-        doc.text(`$${parseFloat(cotizacion.total).toLocaleString()}`, 450, yPosition, {
-          width: 90,
-          align: 'right'
-        });
-
-        yPosition += 40;
-
-        // CONDICIONES
-        if (yPosition > 650) {
+      let servicioIndex = 1;
+      for (const [servicioId, servicioData] of Object.entries(serviciosAgrupados)) {
+        // Verificar si necesitamos nueva página
+        if (yPosition > 680) {
           doc.addPage();
           yPosition = 50;
         }
 
-        doc.fontSize(10)
+        // ✅ NOMBRE DEL SERVICIO
+        doc.fontSize(11)
            .fillColor(primaryColor)
-           .text('CONDICIONES:', 50, yPosition);
+           .text(`${servicioIndex}. ${servicioData.nombre}`, 50, yPosition);
 
         yPosition += 15;
 
-        doc.fontSize(9)
-           .fillColor('#666')
-           .text('• Esta cotización es válida por 30 días a partir de la fecha de emisión', 50, yPosition)
-           .text('• Precios incluyen soporte técnico 24/7', 50, yPosition + 12)
-           .text('• Los servicios se activarán dentro de 48 horas después de la confirmación', 50, yPosition + 24);
-
-        // FOOTER
-        doc.fontSize(8)
-           .fillColor('#999')
-           .text('Para aceptar esta propuesta o solicitar modificaciones, favor confirmar por email o teléfono.', 50, 750)
-           .text('¡Gracias por considerar nuestros servicios!', 50, 765);
-
-        // Marca de agua para copias
-        if (tipo === 'copia') {
-          doc.fontSize(60)
-             .fillColor('#f39c12')
-             .opacity(0.1)
-             .text('COPIA', 200, 400, {
-               rotate: -45,
-               align: 'center'
-             });
+        // ✅ DESCRIPCIÓN DEL SERVICIO
+        if (servicioData.descripcion) {
+          doc.fontSize(9)
+             .fillColor('#666')
+             .text(servicioData.descripcion, 70, yPosition, { width: 400 });
+          yPosition += 12;
         }
 
-        doc.end();
+        // ✅ MOSTRAR CADA CATEGORÍA DEL SERVICIO
+        const categorias = servicioData.categorias;
+        let servicioSubtotal = 0;
 
-      } catch (error) {
-        reject(error);
+        if (categorias.length > 0) {
+          console.log(`📋 Procesando ${categorias.length} categorías para ${servicioData.nombre}`);
+          
+          for (const categoria of categorias) {
+            const cantidadTexto = this._formatearCantidadCategoria(categoria);
+            const subtotalCategoria = categoria.subtotal || 0;
+            servicioSubtotal += subtotalCategoria;
+
+            doc.fontSize(10)
+               .fillColor('#495057')
+               .text(`• ${cantidadTexto}`, 70, yPosition);
+
+            // Precio de la categoría alineado a la derecha
+            doc.text(`$${parseFloat(subtotalCategoria).toLocaleString()}`, 450, yPosition, { 
+              width: 100, 
+              align: 'right' 
+            });
+
+            yPosition += 15;
+          }
+        }
+
+        yPosition += 20;
+
+        // Línea separadora sutil
+        doc.strokeColor('#ecf0f1')
+           .lineWidth(0.5)
+           .moveTo(50, yPosition)
+           .lineTo(550, yPosition)
+           .stroke();
+
+        yPosition += 10;
+        servicioIndex++;
       }
+
+      // TOTAL CON DISEÑO MODERNO
+      yPosition += 10;
+
+      // Caja para el total
+      doc.rect(400, yPosition - 5, 150, 25)
+         .fillAndStroke('#f8f9fa', '#e9ecef');
+
+      doc.fontSize(14)
+         .fillColor('#e74c3c')
+         .text('TOTAL:', 410, yPosition);
+
+      doc.text(`$${parseFloat(cotizacion.total).toLocaleString()}`, 450, yPosition, {
+        width: 90,
+        align: 'right'
+      });
+
+      yPosition += 40;
+
+      // CONDICIONES
+      if (yPosition > 650) {
+        doc.addPage();
+        yPosition = 50;
+      }
+
+      doc.fontSize(10)
+         .fillColor(primaryColor)
+         .text('CONDICIONES:', 50, yPosition);
+
+      yPosition += 15;
+
+      doc.fontSize(9)
+         .fillColor('#666')
+         .text('• Esta cotización es válida por 30 días a partir de la fecha de emisión', 50, yPosition)
+         .text('• Precios incluyen soporte técnico 24/7', 50, yPosition + 12)
+         .text('• Los servicios se activarán dentro de 48 horas después de la confirmación', 50, yPosition + 24);
+
+      // FOOTER MODERNO
+      doc.fontSize(8)
+         .fillColor('#999')
+         .text('Para aceptar esta propuesta o solicitar modificaciones, favor confirmar por email o teléfono.', 50, 750)
+         .text('¡Gracias por considerar nuestros servicios!', 50, 765);
+
+      // Marca de agua para copias
+      if (tipo === 'copia') {
+        doc.fontSize(60)
+           .fillColor('#f39c12')
+           .opacity(0.1)
+           .text('COPIA', 200, 400, {
+             rotate: -45,
+             align: 'center'
+           });
+      }
+
+      doc.end();
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// ✅ NUEVA FUNCIÓN: Agrupar detalles por servicio (IGUAL QUE PDFGenerator)
+_agruparDetallesPorServicio(detalles) {
+  const serviciosAgrupados = {};
+
+  console.log('🔍 DEBUG: Agrupando detalles por servicio...');
+  
+  detalles.forEach((detalle, index) => {
+    console.log(`🔍 DEBUG Detalle ${index + 1}:`, {
+      servicios_id: detalle.servicios_id,
+      servicio_nombre: detalle.servicio?.nombre,
+      categorias_id: detalle.categorias_id,
+      unidades_medida_id: detalle.unidades_medida_id,
+      cantidad: detalle.cantidad,
+      unidad_medida: detalle.unidad_medida,
+      subtotal: detalle.subtotal
     });
+
+    const servicioId = detalle.servicios_id;
+    
+    // Inicializar servicio si no existe
+    if (!serviciosAgrupados[servicioId]) {
+      serviciosAgrupados[servicioId] = {
+        servicios_id: servicioId,
+        nombre: detalle.servicio?.nombre || 'Servicio sin nombre',
+        descripcion: detalle.servicio?.descripcion || '',
+        categorias: []
+      };
+    }
+    
+    // ✅ AGREGAR CATEGORÍA AL SERVICIO
+    const categoriaData = {
+      detalles_id: detalle.detalles_id,
+      categorias_id: detalle.categorias_id,
+      cantidad: detalle.cantidad || 0,
+      cantidad_anos: detalle.cantidad_anos || 1,
+      precio_usado: detalle.precio_usado || 0,
+      subtotal: detalle.subtotal || 0,
+      // ✅ UNIDAD DE MEDIDA DIRECTA (prioritaria)
+      unidad_medida: detalle.unidad_medida || null,
+      // ✅ UNIDAD DE MEDIDA DEL SERVICIO (fallback)
+      unidad_medida_servicio: detalle.servicio?.categoria?.unidad_medida || null,
+      // ✅ DATOS LEGACY PARA COMPATIBILIDAD
+      cantidad_equipos: detalle.cantidad_equipos || 0,
+      cantidad_servicios: detalle.cantidad_servicios || 0,
+      cantidad_gb: detalle.cantidad_gb || 0
+    };
+
+    serviciosAgrupados[servicioId].categorias.push(categoriaData);
+  });
+
+  console.log('✅ Servicios agrupados exitosamente:', Object.keys(serviciosAgrupados));
+  return serviciosAgrupados;
+}
+
+// ✅ NUEVA FUNCIÓN: Formatear cantidad por categoría (IGUAL QUE PDFGenerator)
+_formatearCantidadCategoria(categoria) {
+  console.log('🔍 DEBUG: Formateando categoría:', categoria);
+
+  const cantidad = categoria.cantidad || 0;
+  const años = categoria.cantidad_anos || 1;
+  
+  // ✅ PRIORIDAD 1: Usar unidad de medida directa del detalle
+  let unidadMedida = categoria.unidad_medida;
+  
+  // ✅ PRIORIDAD 2: Usar unidad de medida del servicio
+  if (!unidadMedida && categoria.unidad_medida_servicio) {
+    unidadMedida = categoria.unidad_medida_servicio;
+    console.log('📋 Usando unidad de medida del servicio como fallback');
   }
 
-  // Método helper para formatear rol
-  static formatearRol(tipoUsuario) {
-    const roles = {
-      'admin': 'Administrador',
-      'vendedor': 'Vendedor',
-      'super_usuario': 'Supervisor'
-    };
-    return roles[tipoUsuario] || tipoUsuario;
+  let cantidadTexto = '';
+
+  if (unidadMedida && cantidad > 0) {
+    const nombreUnidad = unidadMedida.nombre || 'Unidades';
+    const abreviacion = unidadMedida.abreviacion || '';
+    const tipoUnidad = unidadMedida.tipo || 'cantidad';
+    
+    console.log(`📏 Usando unidad: ${nombreUnidad} (${tipoUnidad}) - ${cantidad} ${abreviacion}`);
+    
+    switch (tipoUnidad) {
+      case 'capacidad':
+        cantidadTexto = `${nombreUnidad}: ${cantidad} ${abreviacion}`;
+        break;
+      case 'usuarios':
+        cantidadTexto = `${nombreUnidad}: ${cantidad}`;
+        break;
+      case 'sesiones':
+        cantidadTexto = `${nombreUnidad}: ${cantidad}`;
+        break;
+      case 'tiempo':
+        cantidadTexto = `${nombreUnidad}: ${cantidad} ${abreviacion}`;
+        break;
+      case 'cantidad':
+      default:
+        cantidadTexto = `${nombreUnidad}: ${cantidad}`;
+        break;
+    }
+  } else {
+    // ✅ FALLBACK: Usar datos legacy si no hay unidad de medida
+    console.log('⚠️ Sin unidad de medida, usando datos legacy');
+    
+    if (cantidad > 0) {
+      cantidadTexto = `Cantidad: ${cantidad}`;
+    } else if (categoria.cantidad_servicios > 0) {
+      cantidadTexto = `Servicios: ${categoria.cantidad_servicios}`;
+    } else if (categoria.cantidad_gb > 0) {
+      cantidadTexto = `Almacenamiento: ${categoria.cantidad_gb} GB`;
+    } else {
+      cantidadTexto = 'Servicio contratado';
+    }
   }
+
+  // ✅ AGREGAR EQUIPOS ADICIONALES SI EXISTEN
+  if (categoria.cantidad_equipos > 0) {
+    cantidadTexto += ` | Equipos adicionales: ${categoria.cantidad_equipos}`;
+  }
+
+  // ✅ AGREGAR AÑOS SIEMPRE
+  cantidadTexto += ` | Duración: ${años} año${años > 1 ? 's' : ''}`;
+
+  console.log('✅ Texto final formateado:', cantidadTexto);
+  return cantidadTexto;
+}
+  // Cambiar estado de cotización
+  async cambiarEstado(req, res) {
+    try {
+      const { id } = req.params;
+      const { estado, motivo_rechazo } = req.body;
+      
+      const usuarioId = req.user.id;
+      const usuarioNombre = req.user.nombre_completo;
+      
+      console.log('🔍 Debug - Usuario ID:', usuarioId, 'Nombre:', usuarioNombre);
+
+      const estadosValidos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'efectiva', 'rechazada'];
+      
+      if (!estadosValidos.includes(estado)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Estado no válido'
+        });
+      }
+
+      const cotizacion = await Cotizacion.findByPk(id);
+      if (!cotizacion) {
+        return res.status(404).json({
+          success: false,
+          message: 'Cotización no encontrada'
+        });
+      }
+
+      const updateData = { estado };
+
+      switch (estado) {
+        case 'aprobado':
+          if (cotizacion.estado === 'pendiente_aprobacion') {
+            updateData.estado = 'pendiente';
+            updateData.aprobado_por = usuarioId;
+            updateData.aprobado_por_nombre = usuarioNombre;
+            updateData.fecha_aprobacion = new Date();
+            updateData.rechazado_por = null;
+            updateData.rechazado_por_nombre = null;
+            updateData.fecha_rechazo = null;
+          } else {
+            updateData.estado = cotizacion.estado;
+          }
+          break;
+
+        case 'rechazado':
+          if (cotizacion.estado === 'pendiente_aprobacion') {
+            updateData.estado = 'rechazada';
+            updateData.rechazado_por = usuarioId;
+            updateData.rechazado_por_nombre = usuarioNombre;
+            updateData.fecha_rechazo = new Date();
+            if (motivo_rechazo && motivo_rechazo.trim()) {
+              updateData.comentario = motivo_rechazo.trim();
+            }
+            updateData.aprobado_por = null;
+            updateData.aprobado_por_nombre = null;
+            updateData.fecha_aprobacion = null;
+          } else if (cotizacion.estado === 'pendiente') {
+            updateData.estado = 'rechazada';
+            updateData.rechazado_por = usuarioId;
+            updateData.rechazado_por_nombre = usuarioNombre;
+            updateData.fecha_rechazo = new Date();
+            if (motivo_rechazo && motivo_rechazo.trim()) {
+              updateData.comentario = motivo_rechazo.trim();
+            }
+            updateData.aprobado_por = null;
+            updateData.aprobado_por_nombre = null;
+            updateData.fecha_aprobacion = null;
+          } else {
+            updateData.estado = cotizacion.estado;
+          }
+          break;
+
+        case 'efectiva':
+          if (cotizacion.estado === 'pendiente') {
+            updateData.estado = 'efectiva';
+            updateData.aprobado_por = usuarioId;
+            updateData.aprobado_por_nombre = usuarioNombre;
+            updateData.fecha_aprobacion = new Date();
+            updateData.rechazado_por = null;
+            updateData.rechazado_por_nombre = null;
+            updateData.fecha_rechazo = null;
+          } else {
+            updateData.estado = cotizacion.estado;
+          }
+          break;
+
+        case 'rechazada':
+          updateData.estado = 'rechazada';
+          updateData.rechazado_por = usuarioId;
+          updateData.rechazado_por_nombre = usuarioNombre;
+          updateData.fecha_rechazo = new Date();
+          if (motivo_rechazo && motivo_rechazo.trim()) {
+            updateData.comentario = motivo_rechazo.trim();
+          }
+          updateData.aprobado_por = null;
+          updateData.aprobado_por_nombre = null;
+          updateData.fecha_aprobacion = null;
+          break;
+
+        case 'pendiente':
+          updateData.estado = 'pendiente';
+          break;
+
+        case 'pendiente_aprobacion':
+          updateData.estado = 'pendiente_aprobacion';
+          break;
+
+        default:
+          updateData.estado = cotizacion.estado;
+          break;
+      }
+
+      console.log('🔍 Debug - Update Data:', updateData);
+
+      const result = await cotizacion.update(updateData);
+
+      console.log('🔍 Debug - Cotización actualizada:', result.toJSON());
+
+      let mensaje = '';
+      const estadoAnterior = cotizacion.estado;
+      const estadoNuevo = updateData.estado;
+
+      if (estado === 'aprobado' && estadoAnterior === 'pendiente_aprobacion' && estadoNuevo === 'pendiente') {
+        mensaje = 'Cotización aprobada exitosamente. Ahora está pendiente de respuesta del cliente.';
+      } else if (estado === 'rechazado' && estadoAnterior === 'pendiente_aprobacion' && estadoNuevo === 'rechazada') {
+        mensaje = 'Cotización rechazada exitosamente.';
+      } else if (estado === 'rechazado' && estadoAnterior === 'pendiente' && estadoNuevo === 'rechazada') {
+        mensaje = 'Cotización cancelada exitosamente.';
+      } else if (estado === 'efectiva' && estadoAnterior === 'pendiente' && estadoNuevo === 'efectiva') {
+        mensaje = 'Cotización marcada como efectiva exitosamente.';
+      } else if (estadoAnterior !== estadoNuevo) {
+        mensaje = `Estado cambiado de ${estadoAnterior} a ${estadoNuevo} exitosamente.`;
+      } else {
+        mensaje = 'Estado actualizado exitosamente.';
+      }
+
+      res.json({
+        success: true,
+        message: mensaje,
+        cotizacion: {
+          id: cotizacion.cotizaciones_id,
+          estadoAnterior: estadoAnterior,
+          estadoNuevo: estadoNuevo,
+          auditoria: {
+            aprobadoPor: updateData.aprobado_por ? {
+              id: updateData.aprobado_por,
+              nombre: updateData.aprobado_por_nombre
+            } : null,
+            fechaAprobacion: updateData.fecha_aprobacion,
+            rechazadoPor: updateData.rechazado_por ? {
+              id: updateData.rechazado_por,
+              nombre: updateData.rechazado_por_nombre
+            } : null,
+            fechaRechazo: updateData.fecha_rechazo
+          },
+          comentario: updateData.comentario
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al cambiar estado:', error);
+      
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  // 🔧 CORREGIDO: getCotizacionesPendientesAprobacion con nueva estructura
+  async getCotizacionesPendientesAprobacion(req, res) {
+    try {
+      const {
+        page = 1,
+        limit = 25,
+        search = ''
+      } = req.query;
+
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      let whereConditions = {
+        estado: 'pendiente_aprobacion'
+      };
+      
+      // Filtro de búsqueda
+      if (search) {
+        const searchConditions = {
+          [Op.or]: [
+            { '$cliente.nombre_empresa$': { [Op.like]: `%${search}%` } },
+            { '$cliente.nombre_encargado$': { [Op.like]: `%${search}%` } },
+            { '$vendedor.nombre_completo$': { [Op.like]: `%${search}%` } }
+          ]
+        };
+        whereConditions = { ...whereConditions, ...searchConditions };
+      }
+
+      const { count, rows: cotizaciones } = await Cotizacion.findAndCountAll({
+        where: whereConditions,
+        include: [
+          {
+            model: Cliente,
+            as: 'cliente',
+            required: true
+          },
+          {
+            model: Usuario,
+            as: 'vendedor',
+            required: true,
+            attributes: ['usuarios_id', 'nombre_completo', 'tipo_usuario']
+          },
+          {
+            model: CotizacionDetalle,
+            as: 'detalles',
+            include: [
+              {
+                model: Servicio,
+                as: 'servicio',
+                include: [
+                  {
+                    model: Categoria,
+                    as: 'categoria',
+                    include: [
+                      {
+                        model: UnidadMedida,
+                        as: 'unidad_medida',
+                        attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                      }
+                    ]
+                  }
+                ]
+              },
+              // 🆕 NUEVO: Include directo de UnidadMedida
+              {
+                model: UnidadMedida,
+                as: 'unidad_medida',
+                attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+              }
+            ]
+          }
+        ],
+        order: [['fecha_creacion', 'ASC']],
+        limit: parseInt(limit),
+        offset: offset,
+        distinct: true
+      });
+
+      // 🔧 FORMATEAR DATOS ACTUALIZADO con prioridad a relación directa
+      const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
+        const serviciosDetalles = cotizacion.detalles.map(detalle => ({
+          id: detalle.servicios_id,
+          nombre: detalle.servicio.nombre,
+          descripcion: detalle.servicio.descripcion,
+          categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
+          cantidadEquipos: detalle.cantidad_equipos || 0,
+          cantidadServicios: detalle.cantidad_servicios || 0,
+          cantidadGB: detalle.cantidad_gb || 0,
+          cantidadAnos: detalle.cantidad_anos || 1,
+          // 🔧 CORREGIDO: Usar relación directa primero, fallback a categoria
+          unidadMedida: detalle.unidad_medida ? {
+            id: detalle.unidad_medida.unidades_medida_id,
+            nombre: detalle.unidad_medida.nombre,
+            abreviacion: detalle.unidad_medida.abreviacion,
+            tipo: detalle.unidad_medida.tipo
+          } : (detalle.servicio.categoria?.unidad_medida ? {
+            id: detalle.servicio.categoria.unidad_medida.unidades_medida_id,
+           nombre: detalle.servicio.categoria.unidad_medida.nombre,
+           abreviacion: detalle.servicio.categoria.unidad_medida.abreviacion,
+           tipo: detalle.servicio.categoria.unidad_medida.tipo
+         } : null),
+         cantidad: detalle.cantidad || 1,
+         precioUsado: parseFloat(detalle.precio_usado),
+         subtotal: parseFloat(detalle.subtotal),
+         // Agregar precios de referencia para comparación
+         precioMinimo: parseFloat(detalle.servicio.precio_minimo),
+         precioRecomendado: parseFloat(detalle.servicio.precio_recomendado)
+       }));
+
+       return {
+         id: cotizacion.cotizaciones_id,
+         cliente: {
+           nombre: cotizacion.cliente.nombre_empresa,
+           encargado: cotizacion.cliente.nombre_encargado,
+           email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado'
+         },
+         serviciosDetalles: serviciosDetalles,
+         fechaCreacion: cotizacion.fecha_creacion,
+         vendedor: {
+           nombre: cotizacion.vendedor.nombre_completo,
+           rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
+         },
+         estado: cotizacion.estado,
+         total: parseFloat(cotizacion.total),
+         comentario: cotizacion.comentario,
+         // Indicador de urgencia (días esperando aprobación)
+         diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24))
+       };
+     });
+
+     const totalPages = Math.ceil(count / parseInt(limit));
+     const pagination = {
+       currentPage: parseInt(page),
+       totalPages: totalPages,
+       totalItems: count,
+       itemsPerPage: parseInt(limit),
+       hasNextPage: parseInt(page) < totalPages,
+       hasPrevPage: parseInt(page) > 1
+     };
+
+     res.json({
+       success: true,
+       cotizaciones: cotizacionesFormateadas,
+       pagination: pagination
+     });
+
+   } catch (error) {
+     console.error('Error al obtener cotizaciones pendientes:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: error.message
+     });
+   }
+ }
+
+ // Estadísticas específicas para SuperUsuario
+ async getEstadisticasSuper(req, res) { 
+   try {
+     // Estadísticas generales
+     const estadisticasEstado = await Cotizacion.findAll({
+       attributes: [
+         'estado',
+         [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
+       ],
+       group: ['estado']
+     });
+
+     // Cotizaciones pendientes de aprobación con urgencia
+     const pendientesAprobacion = await Cotizacion.findAll({
+       where: { estado: 'pendiente_aprobacion' },
+       attributes: [
+         'cotizaciones_id',
+         'fecha_creacion',
+         [Cotizacion.sequelize.literal('DATEDIFF(NOW(), fecha_creacion)'), 'dias_espera']
+       ],
+       order: [['fecha_creacion', 'ASC']]
+     });
+
+     // Formatear estadísticas
+     const stats = {
+       total: 0,
+       pendientesAprobacion: 0,
+       pendientes: 0,
+       aprobadas: 0,
+       rechazadas: 0,
+       urgentes: 0 // Más de 3 días esperando aprobación
+     };
+
+     estadisticasEstado.forEach(stat => {
+       const cantidad = parseInt(stat.dataValues.cantidad);
+       stats.total += cantidad;
+
+       switch (stat.estado) {
+         case 'pendiente_aprobacion':
+           stats.pendientesAprobacion = cantidad;
+           break;
+         case 'pendiente':
+           stats.pendientes = cantidad;
+           break;
+         case 'efectiva':
+           stats.aprobadas = cantidad;
+           break;
+         case 'rechazada':
+           stats.rechazadas = cantidad;
+           break;
+       }
+     });
+
+     // Contar urgentes (más de 3 días)
+     stats.urgentes = pendientesAprobacion.filter(p => p.dataValues.dias_espera > 3).length;
+
+     res.json({
+       success: true,
+       estadisticas: stats,
+       pendientesDetalle: pendientesAprobacion.map(p => ({
+         id: p.cotizaciones_id,
+         diasEspera: p.dataValues.dias_espera
+       }))
+     });
+
+   } catch (error) {
+     console.error('Error al obtener estadísticas super:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: error.message
+     });
+   }
+ }
+
+ // Obtener lista de vendedores únicos
+ async getVendedores(req, res) {
+   try {
+     const vendedores = await Usuario.findAll({
+       attributes: ['nombre_completo'],
+       include: [{
+         model: Cotizacion,
+         as: 'cotizaciones',
+         required: true,
+         attributes: []
+       }],
+       group: ['usuarios_id', 'nombre_completo'],
+       order: [['nombre_completo', 'ASC']]
+     });
+
+     const vendedoresUnicos = vendedores.map(v => v.nombre_completo);
+
+     res.json({
+       success: true,
+       vendedores: vendedoresUnicos
+     });
+
+   } catch (error) {
+     console.error('Error al obtener vendedores:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: error.message
+     });
+   }
+ }
+
+
+
+ // Método helper para formatear rol
+ static formatearRol(tipoUsuario) {
+   const roles = {
+     'admin': 'Administrador',
+     'vendedor': 'Vendedor',
+     'super_usuario': 'Supervisor'
+   };
+   return roles[tipoUsuario] || tipoUsuario;
+ }
 }
 
 module.exports = CotizacionController;

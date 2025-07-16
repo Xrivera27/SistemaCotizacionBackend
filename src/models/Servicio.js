@@ -19,6 +19,12 @@ const Servicio = sequelize.define('Servicio', {
       key: 'categorias_id'
     }
   },
+  // 🆕 AGREGAR ESTE CAMPO QUE FALTABA
+  categorias_ids: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null
+  },
   descripcion: {
     type: DataTypes.TEXT,
     allowNull: true

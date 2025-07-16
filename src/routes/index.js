@@ -3,10 +3,11 @@ const authRoutes = require('./auth');
 const usuariosRoutes = require('./usuarios');
 const clientesRoutes = require('./clientes'); 
 const categoriasRoutes = require('./categorias'); 
+const unidadesMedidaRoutes = require('./unidadesMedida'); // 🆕 NUEVO
 const serviciosRoutes = require('./servicios');
 const cotizacionesRoutes = require('./cotizaciones');
 const cotizacionesVendedorRoutes = require('./cotizacionesVendedor');
-const cotizacionVendedor = require('./cotizacionVendedor'); // 🆕 NUEVO
+const cotizacionVendedor = require('./cotizacionVendedor');
 const pdfRoutes = require('./pdf');
 const configuracionRoutes = require('./configuracion');
 const dashboardRoutes = require('./dashboard'); 
@@ -19,10 +20,11 @@ router.use('/auth', authRoutes);
 router.use('/usuarios', usuariosRoutes);
 router.use('/clientes', clientesRoutes); 
 router.use('/categorias', categoriasRoutes); 
+router.use('/unidades-medida', unidadesMedidaRoutes); // 🆕 NUEVA RUTA
 router.use('/servicios', serviciosRoutes);
 router.use('/cotizaciones', cotizacionesRoutes);
 router.use('/cotizaciones-vendedor', cotizacionesVendedorRoutes); 
-router.use('/cotizacion-vendedor', cotizacionVendedor); // 🆕 NUEVA RUTA
+router.use('/cotizacion-vendedor', cotizacionVendedor);
 router.use('/pdf', pdfRoutes); 
 router.use('/configuracion', configuracionRoutes);
 router.use('/dashboard', dashboardRoutes);

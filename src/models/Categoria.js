@@ -15,6 +15,14 @@ const Categoria = sequelize.define('Categoria', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  unidades_medida_id: {
+    type: DataTypes.BIGINT,
+    allowNull: false,
+    references: {
+      model: 'unidades_medida',
+      key: 'unidades_medida_id'
+    }
+  },
   estado: {
     type: DataTypes.ENUM('activo', 'inactivo'),
     defaultValue: 'activo',
@@ -26,5 +34,20 @@ const Categoria = sequelize.define('Categoria', {
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });
+
+// 🆕 ASOCIACIONES ACTUALIZADAS
+Categoria.associate = function(models) {
+  // Relación con UnidadMedida (belongsTo)
+  Categoria.belongsTo(models.UnidadMedida, {
+    foreignKey: 'unidades_medida_id',
+    as: 'unidad_medida'
+  });
+  
+  // Relación con Servicios (hasMany)
+  Categoria.hasMany(models.Servicio, {
+    foreignKey: 'categorias_id',
+    as: 'servicios'
+  });
+};
 
 module.exports = Categoria;

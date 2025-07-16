@@ -1,4 +1,4 @@
-const { Categoria, Servicio, sequelize } = require('../models'); // ✅ Agregar sequelize aquí
+const { Categoria, Servicio, UnidadMedida, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 class CategoriaService {
@@ -31,12 +31,20 @@ class CategoriaService {
       
       const result = await Categoria.findAndCountAll({
         where: whereConditions,
-        include: [{
-          model: Servicio,
-          as: 'servicios',
-          attributes: ['servicios_id', 'nombre', 'estado'],
-          required: false
-        }],
+        include: [
+          {
+            model: Servicio,
+            as: 'servicios',
+            attributes: ['servicios_id', 'nombre', 'estado'],
+            required: false
+          },
+          {
+            model: UnidadMedida,
+            as: 'unidad_medida',
+            attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo'],
+            required: false // ✅ CORREGIDO: Cambiar de true a false
+          }
+        ],
         order: [['created_at', 'DESC']],
         limit: parseInt(limit),
         offset: parseInt(offset)
@@ -67,12 +75,20 @@ class CategoriaService {
   async getCategoriaById(id) {
     try {
       const categoria = await Categoria.findByPk(id, {
-        include: [{
-          model: Servicio,
-          as: 'servicios',
-          attributes: ['servicios_id', 'nombre', 'precio_minimo', 'precio_recomendado', 'estado'],
-          required: false
-        }]
+        include: [
+          {
+            model: Servicio,
+            as: 'servicios',
+            attributes: ['servicios_id', 'nombre', 'precio_minimo', 'precio_recomendado', 'estado'],
+            required: false
+          },
+          {
+            model: UnidadMedida,
+            as: 'unidad_medida',
+            attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo', 'descripcion'],
+            required: false // ✅ CORREGIDO: Cambiar de true a false
+          }
+        ]
       });
       
       if (!categoria) {
@@ -96,6 +112,31 @@ class CategoriaService {
   // Crear nueva categoría
   async createCategoria(categoriaData) {
     try {
+      console.log('📝 Creando categoría con datos:', categoriaData);
+      
+      // ✅ CORREGIDO: Verificar que viene la unidad de medida
+      if (!categoriaData.unidades_medida_id) {
+        return {
+          success: false,
+          message: 'La unidad de medida es requerida'
+        };
+      }
+      
+      // Verificar que la unidad de medida existe y está activa
+      const unidadMedida = await UnidadMedida.findOne({
+        where: { 
+          unidades_medida_id: categoriaData.unidades_medida_id,
+          activo: true
+        }
+      });
+      
+      if (!unidadMedida) {
+        return {
+          success: false,
+          message: 'La unidad de medida seleccionada no existe o está inactiva'
+        };
+      }
+      
       // Verificar si el nombre ya existe (solo activas)
       const categoriaExistente = await Categoria.findOne({
         where: { 
@@ -116,12 +157,24 @@ class CategoriaService {
       const nuevaCategoria = await Categoria.create({
         nombre: categoriaData.nombre.trim(),
         descripcion: categoriaData.descripcion?.trim() || null,
+        unidades_medida_id: categoriaData.unidades_medida_id,
         estado: 'activo'
       });
       
+      // Obtener la categoría completa con relaciones
+      const categoriaCompleta = await Categoria.findByPk(nuevaCategoria.categorias_id, {
+        include: [{
+          model: UnidadMedida,
+          as: 'unidad_medida',
+          attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+        }]
+      });
+      
+      console.log('✅ Categoría creada con unidad de medida:', unidadMedida.nombre);
+      
       return {
         success: true,
-        categoria: nuevaCategoria,
+        categoria: categoriaCompleta,
         message: 'Categoría creada exitosamente'
       };
       
@@ -141,6 +194,23 @@ class CategoriaService {
           success: false,
           message: 'Categoría no encontrada'
         };
+      }
+      
+      // Si se está actualizando la unidad de medida, verificar que existe y está activa
+      if (categoriaData.unidades_medida_id) {
+        const unidadMedida = await UnidadMedida.findOne({
+          where: { 
+            unidades_medida_id: categoriaData.unidades_medida_id,
+            activo: true
+          }
+        });
+        
+        if (!unidadMedida) {
+          return {
+            success: false,
+            message: 'La unidad de medida seleccionada no existe o está inactiva'
+          };
+        }
       }
       
       // Si se está actualizando el nombre, verificar que no exista (solo activas)
@@ -174,6 +244,10 @@ class CategoriaService {
         datosActualizacion.descripcion = categoriaData.descripcion?.trim() || null;
       }
       
+      if (categoriaData.unidades_medida_id) {
+        datosActualizacion.unidades_medida_id = categoriaData.unidades_medida_id;
+      }
+      
       if (categoriaData.estado) {
         datosActualizacion.estado = categoriaData.estado;
       }
@@ -182,12 +256,20 @@ class CategoriaService {
       
       // Obtener categoría actualizada con relaciones
       const categoriaActualizada = await Categoria.findByPk(id, {
-        include: [{
-          model: Servicio,
-          as: 'servicios',
-          attributes: ['servicios_id', 'nombre', 'estado'],
-          required: false
-        }]
+        include: [
+          {
+            model: Servicio,
+            as: 'servicios',
+            attributes: ['servicios_id', 'nombre', 'estado'],
+            required: false
+          },
+          {
+            model: UnidadMedida,
+            as: 'unidad_medida',
+            attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo'],
+            required: false // ✅ CORREGIDO: Cambiar de true a false
+          }
+        ]
       });
       
       return {
@@ -285,7 +367,7 @@ class CategoriaService {
     }
   }
   
-  // ✅ MÉTODO CORREGIDO: Obtener estadísticas de categorías
+  // Obtener estadísticas de categorías
   async getEstadisticas() {
     try {
       console.log('📊 Iniciando cálculo de estadísticas...');
@@ -299,7 +381,7 @@ class CategoriaService {
       
       console.log(`📊 Conteos básicos - Total: ${total}, Activas: ${activas}, Inactivas: ${inactivas}`);
       
-      // Categorías activas con servicios activos (usando consulta SQL directa)
+      // Categorías activas con servicios activos
       const [conServiciosResult] = await sequelize.query(`
         SELECT COUNT(DISTINCT c.categorias_id) as count
         FROM categorias c
@@ -314,16 +396,19 @@ class CategoriaService {
       
       console.log(`📊 Servicios - Con servicios: ${conServiciosActivos}, Sin servicios: ${sinServiciosActivos}`);
       
-      // Categorías con más servicios (consulta SQL directa)
+      // Categorías con más servicios (incluir unidad de medida)
       const categoriasMasServicios = await sequelize.query(`
         SELECT 
           c.categorias_id,
           c.nombre,
+          um.nombre as unidad_medida_nombre,
+          um.abreviacion as unidad_medida_abrev,
           COUNT(s.servicios_id) as total_servicios_activos
         FROM categorias c
         LEFT JOIN servicios s ON c.categorias_id = s.categorias_id AND s.estado = 'activo'
+        LEFT JOIN unidades_medida um ON c.unidades_medida_id = um.unidades_medida_id
         WHERE c.estado = 'activo'
-        GROUP BY c.categorias_id, c.nombre
+        GROUP BY c.categorias_id, c.nombre, um.nombre, um.abreviacion
         ORDER BY total_servicios_activos DESC
         LIMIT 10
       `, {
@@ -373,6 +458,12 @@ class CategoriaService {
             }
           ]
         },
+        include: [{
+          model: UnidadMedida,
+          as: 'unidad_medida',
+          attributes: ['nombre', 'abreviacion', 'tipo'],
+          required: false // ✅ CORREGIDO: Cambiar de true a false
+        }],
         attributes: [
           'categorias_id',
           'nombre',
@@ -398,6 +489,12 @@ class CategoriaService {
     try {
       const categorias = await Categoria.findAll({
         where: { estado: 'activo' },
+        include: [{
+          model: UnidadMedida,
+          as: 'unidad_medida',
+          attributes: ['nombre', 'abreviacion', 'tipo'],
+          required: false // ✅ CORREGIDO: Cambiar de true a false
+        }],
         attributes: [
           'categorias_id',
           'nombre',

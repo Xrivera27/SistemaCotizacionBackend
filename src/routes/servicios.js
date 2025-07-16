@@ -13,12 +13,25 @@ router.use(authenticateToken);
 // Rutas de administración (ANTES de /:id)
 router.get('/admin/estadisticas', requireAdmin, servicioController.getEstadisticas);
 
+// 🆕 NUEVAS RUTAS ADMINISTRATIVAS
+router.get('/admin/stats/categories', requireAdmin, servicioController.getAdvancedCategoryStats);
+router.get('/admin/validate', requireAdmin, servicioController.validateDataIntegrity);
+router.post('/admin/migrate', requireAdmin, servicioController.migrateToMultipleCategories);
+
 // Rutas de búsqueda y filtros (ANTES de /:id)
 router.get('/search', servicioController.searchServicios);
 router.get('/activos', servicioController.getServiciosActivos);
 router.get('/categoria/:categoria_id', servicioController.getServiciosPorCategoria);
 
+// 🆕 NUEVAS RUTAS DE CONSULTA
+router.get('/expanded', servicioController.getServiciosWithExpandedCategories);
+router.post('/check-conflicts', requireAdminOrSuper, servicioController.checkNameConflicts);
+
 // ==================== RUTAS DINÁMICAS AL FINAL ====================
+// 🆕 NUEVAS RUTAS CON PARÁMETROS (ANTES de /:id genérico)
+router.get('/:id/categories', servicioController.getCategoriesForServicio);
+router.get('/:id/related', servicioController.getRelatedServicios);
+
 // Rutas con parámetros dinámicos van al final
 router.get('/:id', servicioController.getServicioById);
 
