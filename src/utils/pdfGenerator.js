@@ -265,16 +265,18 @@ class PDFGenerator {
    }
 
    this.doc.fontSize(10)
-            .fillColor(primaryColor)
-            .text('CONDICIONES:', 50, yPosition);
+    .fillColor(primaryColor)
+    .text('CONDICIONES:', 50, yPosition);
 
-   yPosition += 15;
+yPosition += 15;
 
-   this.doc.fontSize(9)
-            .fillColor('#666')
-            .text('• Esta cotización es válida por 30 días a partir de la fecha de emisión', 50, yPosition)
-            .text('• Precios incluyen soporte técnico 24/7', 50, yPosition + 12)
-            .text('• Los servicios se activarán dentro de 48 horas después de la confirmación', 50, yPosition + 24);
+this.doc.fontSize(9)
+    .fillColor('#666')
+    .text('• Esta cotización tiene validez de 15 días calendario a partir de la fecha de emisión', 50, yPosition)
+    .text('• Soporte técnico disponible de lunes a viernes de 8:00 AM a 5:00 PM, sábados de 8:00 AM a 12:00 PM (UTC-6)', 50, yPosition + 12)
+    .text('• Los precios cotizados corresponden a la cantidad de equipos especificada. Cualquier variación en el número', 50, yPosition + 24)
+    .text('  de equipos al momento de la implementación será facturada según la cantidad real instalada', 50, yPosition + 36)
+    .text('• Las visitas técnicas fuera del área metropolitana de La Ceiba generan costos adicionales de traslado', 50, yPosition + 48);
 
    // FOOTER MODERNO
    this.doc.fontSize(8)
