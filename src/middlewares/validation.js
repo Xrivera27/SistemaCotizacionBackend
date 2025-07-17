@@ -337,15 +337,15 @@ forgotPassword: Joi.object({
         'string.max': 'El nombre de empresa no puede tener más de 255 caracteres'
       }),
     
-    documento_fiscal: Joi.string()
-      .min(5)
-      .max(50)
-      .required()
-      .messages({
-        'string.empty': 'El documento fiscal es requerido',
-        'string.min': 'El documento fiscal debe tener al menos 5 caracteres',
-        'string.max': 'El documento fiscal no puede tener más de 50 caracteres'
-      }),
+   documento_fiscal: Joi.string()
+  .min(5)
+  .max(20)  // ✅ CAMBIO: De 50 a 20
+  .required()
+  .messages({
+    'string.empty': 'El documento fiscal es requerido',
+    'string.min': 'El documento fiscal debe tener al menos 5 caracteres',
+    'string.max': 'El documento fiscal no puede tener más de 20 caracteres'
+  }),
     
     correo_personal: Joi.string()
       .email()
