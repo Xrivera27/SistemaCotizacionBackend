@@ -1,4 +1,4 @@
-// utils/pdfGenerator.js - COMPLETO ACTUALIZADO
+// utils/pdfGenerator.js - COMPLETO ACTUALIZADO CON MARCA DE COPIA
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -7,12 +7,12 @@ class PDFGenerator {
  
  constructor() {
    this.doc = null;
-   this.pageMargin = 50;
+   this.pageMargin = 40;
    this.currentY = this.pageMargin;
  }
  
- // Crear PDF de cotización
- async generarCotizacionPDF(cotizacion, outputPath = null) {
+ // ✅ ACTUALIZADO: Agregar parámetro tipo para manejar COPIA
+ async generarCotizacionPDF(cotizacion, tipo = 'original', outputPath = null) {
    try {
      console.log('📄 Generando PDF de cotización...');
      
@@ -36,7 +36,7 @@ class PDFGenerator {
      const buffers = [];
      this.doc.on('data', buffers.push.bind(buffers));
      
-     await this._construirPDF(cotizacion);
+     await this._construirPDF(cotizacion, tipo); // ✅ PASAR TIPO
      
      this.doc.end();
      
@@ -56,57 +56,64 @@ class PDFGenerator {
    }
  }
  
- // ✅ ACTUALIZADO COMPLETO: Construir el contenido del PDF
- async _construirPDF(cotizacion) {
+ // ✅ ACTUALIZADO: Recibir parámetro tipo
+ async _construirPDF(cotizacion, tipo = 'original') {
    // Configurar colores
    const primaryColor = '#2c3e50';
    const secondaryColor = '#3498db';
    const accentColor = '#27ae60';
    
-   let yPosition = 50;
+   let yPosition = 40;
    
-   // HEADER MEJORADO
-   this.doc.fontSize(24)
+   // HEADER COMPACTO
+   this.doc.fontSize(22)
             .fillColor(primaryColor)
-            .text('PERDOMO Y ASOCIADOS S. DE R.L', 50, yPosition);
+            .text('PERDOMO Y ASOCIADOS S. DE R.L', 40, yPosition);
 
-   this.doc.fontSize(10)
+   // ✅ NUEVO: MARCA DE COPIA en la esquina superior derecha
+   if (tipo === 'copia') {
+     this.doc.fontSize(14)
+              .fillColor('#f39c12')
+              .text('COPIA', 500, 40, { width: 60, align: 'right' });
+   }
+
+   this.doc.fontSize(9)
             .fillColor('#7f8c8d')
-            .text('Dirección de la empresa: Col. Sauce', 50, yPosition + 30)
-            .text('Teléfono: +504 | Email: perdomoyasociados@gmail.com', 50, yPosition + 45)
-            .text('www.perdomoyasociados.com', 50, yPosition + 60);
+            .text('Dirección de la empresa: Col. Sauce', 40, yPosition + 25)
+            .text('Teléfono: +504 2443-6618 | Email: perdomoyasociados@gmail.com', 40, yPosition + 37)
+            .text('www.perdomoyasociados.com', 40, yPosition + 49);
 
-   yPosition += 90;
+   yPosition += 70;
 
-   // Línea separadora moderna
+   // Línea separadora
    this.doc.strokeColor('#ecf0f1')
-            .lineWidth(2)
-            .moveTo(50, yPosition)
-            .lineTo(550, yPosition)
+            .lineWidth(1.5)
+            .moveTo(40, yPosition)
+            .lineTo(560, yPosition)
             .stroke();
+
+   yPosition += 15;
+
+   // TÍTULO COMPACTO
+   this.doc.fontSize(16)
+            .fillColor(primaryColor)
+            .text('COTIZACIÓN', 40, yPosition, { align: 'center' });
 
    yPosition += 20;
 
-   // TÍTULO Y NÚMERO DE COTIZACIÓN CENTRADO
-   this.doc.fontSize(18)
-            .fillColor(primaryColor)
-            .text('COTIZACIÓN', 50, yPosition, { align: 'center' });
-
-   yPosition += 25;
-
    const numeroCotizacion = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
-   this.doc.fontSize(14)
-            .fillColor(secondaryColor)
-            .text(numeroCotizacion, 50, yPosition, { align: 'center' });
-
-   yPosition += 40;
-
-   // INFORMACIÓN DEL CLIENTE
    this.doc.fontSize(12)
-            .fillColor(primaryColor)
-            .text('DATOS DEL CLIENTE:', 50, yPosition);
+            .fillColor(secondaryColor)
+            .text(numeroCotizacion, 40, yPosition, { align: 'center' });
 
-   yPosition += 15;
+   yPosition += 30;
+
+   // INFORMACIÓN DEL CLIENTE COMPACTA
+   this.doc.fontSize(11)
+            .fillColor(primaryColor)
+            .text('DATOS DEL CLIENTE:', 40, yPosition);
+
+   yPosition += 12;
 
    const incluirInfo = {
      encargado: cotizacion.incluir_nombre_encargado,
@@ -116,176 +123,280 @@ class PDFGenerator {
      correo: cotizacion.incluir_correo_empresa
    };
 
-   this.doc.fontSize(10).fillColor('#555');
+   this.doc.fontSize(9).fillColor('#555');
 
    if (incluirInfo.encargado) {
-     this.doc.text(`Encargado: ${cotizacion.cliente.nombre_encargado}`, 50, yPosition);
-     yPosition += 12;
+     this.doc.text(`Encargado: ${cotizacion.cliente.nombre_encargado}`, 40, yPosition);
+     yPosition += 10;
    }
 
    if (incluirInfo.empresa) {
-     this.doc.text(`Empresa: ${cotizacion.cliente.nombre_empresa}`, 50, yPosition);
-     yPosition += 12;
+     this.doc.text(`Empresa: ${cotizacion.cliente.nombre_empresa}`, 40, yPosition);
+     yPosition += 10;
    }
 
    if (incluirInfo.documento) {
-     this.doc.text(`Documento Fiscal: ${cotizacion.cliente.documento_fiscal}`, 50, yPosition);
-     yPosition += 12;
+     this.doc.text(`Documento Fiscal: ${cotizacion.cliente.documento_fiscal}`, 40, yPosition);
+     yPosition += 10;
    }
 
    if (incluirInfo.telefono && cotizacion.cliente.telefono_empresa) {
-     this.doc.text(`Teléfono: ${cotizacion.cliente.telefono_empresa}`, 50, yPosition);
-     yPosition += 12;
+     this.doc.text(`Teléfono: ${cotizacion.cliente.telefono_empresa}`, 40, yPosition);
+     yPosition += 10;
    }
 
    if (incluirInfo.correo && cotizacion.cliente.correo_empresa) {
-     this.doc.text(`Email: ${cotizacion.cliente.correo_empresa}`, 50, yPosition);
-     yPosition += 12;
+     this.doc.text(`Email: ${cotizacion.cliente.correo_empresa}`, 40, yPosition);
+     yPosition += 10;
    }
 
-   yPosition += 10;
+   yPosition += 8;
 
    // INFORMACIÓN GENERAL
-   this.doc.text(`Fecha: ${new Date(cotizacion.fecha_creacion).toLocaleDateString('es-HN')}`, 50, yPosition);
+   this.doc.text(`Fecha: ${new Date(cotizacion.fecha_creacion).toLocaleDateString('es-HN')}`, 40, yPosition);
    this.doc.text(`Vendedor: ${cotizacion.vendedor.nombre_completo}`, 300, yPosition);
-   yPosition += 20;
+   yPosition += 15;
 
    // Línea separadora
    this.doc.strokeColor('#ecf0f1')
             .lineWidth(1)
-            .moveTo(50, yPosition)
-            .lineTo(550, yPosition)
+            .moveTo(40, yPosition)
+            .lineTo(560, yPosition)
             .stroke();
 
-   yPosition += 20;
+   yPosition += 15;
 
-   // ✅ NUEVA LÓGICA: SERVICIOS INCLUIDOS CON AGRUPACIÓN POR SERVICIO
-   this.doc.fontSize(12)
+   // SERVICIOS INCLUIDOS
+   this.doc.fontSize(11)
             .fillColor(primaryColor)
-            .text('SERVICIOS INCLUIDOS:', 50, yPosition);
+            .text('SERVICIOS INCLUIDOS:', 40, yPosition);
 
-   yPosition += 20;
+   yPosition += 15;
 
-   // ✅ AGRUPAR DETALLES POR SERVICIO
+   // AGRUPAR DETALLES POR SERVICIO
    const serviciosAgrupados = this._agruparDetallesPorServicio(cotizacion.detalles);
    
    console.log('📊 Servicios agrupados para PDF:', Object.keys(serviciosAgrupados).length);
 
    let servicioIndex = 1;
+   let totalMensualReal = 0;
+
    for (const [servicioId, servicioData] of Object.entries(serviciosAgrupados)) {
-     // Verificar si necesitamos nueva página
-     if (yPosition > 680) {
-       this.doc.addPage();
-       yPosition = 50;
-     }
-
-     // ✅ NOMBRE DEL SERVICIO
-     this.doc.fontSize(11)
+     // NOMBRE DEL SERVICIO COMPACTO
+     this.doc.fontSize(10)
               .fillColor(primaryColor)
-              .text(`${servicioIndex}. ${servicioData.nombre}`, 50, yPosition);
+              .text(`${servicioIndex}. ${servicioData.nombre}`, 40, yPosition);
 
-     yPosition += 15;
+     yPosition += 12;
 
-     // ✅ DESCRIPCIÓN DEL SERVICIO
+     // DESCRIPCIÓN COMPACTA
      if (servicioData.descripcion) {
-       this.doc.fontSize(9)
+       this.doc.fontSize(8)
                 .fillColor('#666')
-                .text(servicioData.descripcion, 70, yPosition, { width: 400 });
-       yPosition += 12;
+                .text(servicioData.descripcion, 60, yPosition, { width: 400 });
+       yPosition += 10;
      }
 
-     // ✅ MOSTRAR CADA CATEGORÍA DEL SERVICIO
+     // CATEGORÍAS COMPACTAS
      const categorias = servicioData.categorias;
-     let servicioSubtotal = 0;
+     let servicioSubtotalMensual = 0;
 
      if (categorias.length > 0) {
-       console.log(`📋 Procesando ${categorias.length} categorías para ${servicioData.nombre}`);
-       
        for (const categoria of categorias) {
-         const cantidadTexto = this._formatearCantidadCategoria(categoria);
-         const subtotalCategoria = categoria.subtotal || 0;
-         servicioSubtotal += subtotalCategoria;
+         const { cantidadTexto, costoMensualCategoria } = this._formatearCantidadCategoriaCorregida(categoria);
+         servicioSubtotalMensual += costoMensualCategoria;
 
-         this.doc.fontSize(10)
+         this.doc.fontSize(8)
                   .fillColor('#495057')
-                  .text(`• ${cantidadTexto}`, 70, yPosition);
+                  .text(`• ${cantidadTexto}`, 60, yPosition, { width: 480 });
 
-         // Precio de la categoría alineado a la derecha
-         this.doc.text(`$${parseFloat(subtotalCategoria).toLocaleString()}`, 450, yPosition, { 
-           width: 100, 
-           align: 'right' 
-         });
-
-         yPosition += 15;
+         yPosition += 12;
        }
      }
 
-     // ✅ SUBTOTAL DEL SERVICIO
-     this.doc.fontSize(10)
+     // SUBTOTAL COMPACTO
+     totalMensualReal += servicioSubtotalMensual;
+     
+     this.doc.fontSize(9)
               .fillColor(primaryColor)
-              
+              .text(`Subtotal ${servicioData.nombre}:`, 60, yPosition, { width: 350 });
 
      this.doc.fillColor('#e74c3c')
+              .text(`$${parseFloat(servicioSubtotalMensual).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes`, 400, yPosition, { 
+                width: 120, 
+                align: 'right' 
+              });
               
      yPosition += 20;
 
      // Línea separadora sutil
      this.doc.strokeColor('#ecf0f1')
               .lineWidth(0.5)
-              .moveTo(50, yPosition)
-              .lineTo(550, yPosition)
+              .moveTo(40, yPosition)
+              .lineTo(560, yPosition)
               .stroke();
 
-     yPosition += 10;
+     yPosition += 12;
      servicioIndex++;
    }
 
-   // TOTAL CON DISEÑO MODERNO
-   yPosition += 10;
+   // RESUMEN FINANCIERO COMPACTO
+   this.doc.fontSize(11)
+            .fillColor(primaryColor)
+            .text('RESUMEN FINANCIERO:', 40, yPosition);
 
-   // Caja para el total
-   this.doc.rect(400, yPosition - 5, 150, 25)
+   yPosition += 15;
+
+   // EXTRAER AÑOS DEL CONTRATO
+   const añosContrato = this._extraerAñosContrato(cotizacion.detalles);
+   
+   // CÁLCULOS
+   const totalMensual = totalMensualReal;
+   const totalAnual = totalMensual * 12;
+   const totalContrato = totalAnual * añosContrato;
+
+   // Caja compacta para el resumen
+   this.doc.rect(40, yPosition, 520, 65)
             .fillAndStroke('#f8f9fa', '#e9ecef');
 
-   this.doc.fontSize(14)
-            .fillColor('#e74c3c')
-            .text('TOTAL:', 410, yPosition);
+   yPosition += 12;
 
-   this.doc.text(`$${parseFloat(cotizacion.total).toLocaleString()}`, 450, yPosition, {
-     width: 90,
-     align: 'right'
+   this.doc.fontSize(9)
+            .fillColor('#666')
+            .text(`Costo mensual promedio:`, 60, yPosition);
+   
+   this.doc.fillColor('#2980b9')
+            .text(`$${parseFloat(totalMensual).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+              width: 120, 
+              align: 'right' 
+            });
+
+   yPosition += 15;
+
+   this.doc.fillColor('#666')
+            .text(`Costo anual:`, 60, yPosition);
+   
+   this.doc.fillColor('#27ae60')
+            .text(`$${parseFloat(totalAnual).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+              width: 120, 
+              align: 'right' 
+            });
+
+   yPosition += 15;
+
+   this.doc.fillColor('#666')
+            .text(`Duración del contrato:`, 60, yPosition);
+   
+   this.doc.fillColor('#8e44ad')
+            .text(`${añosContrato} año${añosContrato > 1 ? 's' : ''}`, 420, yPosition, { 
+              width: 120, 
+              align: 'right' 
+            });
+
+   yPosition += 25;
+
+   // TOTAL FINAL COMPACTO
+   yPosition += 8;
+
+   this.doc.fontSize(14)
+            .fillColor('black')
+            .text('TOTAL DEL CONTRATO:', 40, yPosition, { width: 300 });
+
+   this.doc.fontSize(18)
+            .fillColor('black')
+            .text(`$${parseFloat(totalContrato).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+              width: 120, 
+              align: 'right' 
+            });
+
+   yPosition += 30;
+
+   // NOTA DE IMPUESTOS COMPACTA
+   this.doc.fontSize(9)
+            .fillColor('#e74c3c')
+            .text('* Los precios cotizados no incluyen impuestos aplicables según la legislación vigente.', 40, yPosition, { 
+              align: 'center',
+              width: 520
+            });
+
+   yPosition += 25;
+
+   // CONDICIONES COMPACTAS
+   this.doc.fontSize(9)
+            .fillColor(primaryColor)
+            .text('CONDICIONES:', 40, yPosition);
+
+   yPosition += 12;
+
+   this.doc.fontSize(8)
+            .fillColor('#666')
+            .text('• Esta cotización tiene validez de 15 días calendario a partir de la fecha de emisión.', 40, yPosition)
+            .text('• Soporte técnico disponible de lunes a viernes de 8:00 AM a 5:00 PM, sábados de 8:00 AM a 12:00 PM (UTC-6).', 40, yPosition + 10)
+            .text('• Los precios cotizados corresponden a la cantidad de equipos especificada. Cualquier variación en el número', 40, yPosition + 20)
+            .text('  de equipos al momento de la implementación será facturada según la cantidad real instalada.', 40, yPosition + 30)
+            .text('• Las visitas técnicas fuera del área metropolitana de La Ceiba generan costos adicionales.', 40, yPosition + 40)
+            .text('• Los impuestos correspondientes (ISV, impuesto sobre la renta, etc.) serán aplicados según la', 40, yPosition + 50)
+            .text('  normativa fiscal vigente al momento de la facturación.', 40, yPosition + 60);
+
+   yPosition += 80;
+
+   // FOOTER COMPACTO
+   this.doc.fontSize(8)
+            .fillColor('#666')
+            .text('Para aceptar esta propuesta o solicitar modificaciones, favor confirmar por email o teléfono.', 40, yPosition, {
+              align: 'center',
+              width: 520
+            });
+   
+   yPosition += 15;
+   
+   this.doc.fontSize(9)
+            .fillColor('#2c3e50')
+            .text('¡Gracias por considerar nuestros servicios!', 40, yPosition, {
+              align: 'center',
+              width: 520
+            });
+
+   yPosition += 20;
+
+   // INFORMACIÓN DE CONTACTO FINAL
+   this.doc.fontSize(7)
+            .fillColor('#999')
+            .text('Perdomo y Asociados S. de R.L. | Col. Sauce | Tel: +504 2443-6618', 40, yPosition, {
+              align: 'center',
+              width: 520
+            });
+
+   yPosition += 10;
+
+   this.doc.text('perdomoyasociados@gmail.com | www.perdomoyasociados.com', 40, yPosition, {
+     align: 'center',
+     width: 520
    });
 
-   yPosition += 40;
-
-   // CONDICIONES
-   if (yPosition > 650) {
-     this.doc.addPage();
-     yPosition = 50;
+   // ✅ NUEVO: MARCA DE AGUA PARA COPIAS (opcional, más sutil)
+   if (tipo === 'copia') {
+     this.doc.fontSize(80)
+              .fillColor('#f39c12')
+              .opacity(0.08) // Muy sutil para no interferir
+              .text('COPIA', 150, 350, {
+                rotate: -45,
+                align: 'center'
+              });
+     
+     // Restaurar opacidad
+     this.doc.opacity(1);
    }
-
-   this.doc.fontSize(10)
-    .fillColor(primaryColor)
-    .text('CONDICIONES:', 50, yPosition);
-
-yPosition += 15;
-
-this.doc.fontSize(9)
-    .fillColor('#666')
-    .text('• Esta cotización tiene validez de 15 días calendario a partir de la fecha de emisión.', 50, yPosition)
-    .text('• Soporte técnico disponible de lunes a viernes de 8:00 AM a 5:00 PM, sábados de 8:00 AM a 12:00 PM (UTC-6).', 50, yPosition + 12)
-    .text('• Los precios cotizados corresponden a la cantidad de equipos especificada. Cualquier variación en el número', 50, yPosition + 24)
-    .text('  de equipos al momento de la implementación será facturada según la cantidad real instalada.', 50, yPosition + 36)
-    .text('• Las visitas técnicas fuera del área metropolitana de La Ceiba generan costos adicionales.', 50, yPosition + 48);
-
-   // FOOTER MODERNO
-   this.doc.fontSize(8)
-            .fillColor('#999')
-            .text('Para aceptar esta propuesta o solicitar modificaciones, favor confirmar por email o teléfono.', 50, 750)
-            .text('¡Gracias por considerar nuestros servicios!', 50, 765);
  }
 
- // ✅ NUEVA FUNCIÓN: Agrupar detalles por servicio
+ // Mantener todos los métodos existentes...
+ _extraerAñosContrato(detalles) {
+   if (detalles && detalles.length > 0) {
+     return detalles[0].cantidad_anos || 1;
+   }
+   return 1;
+ }
+
  _agruparDetallesPorServicio(detalles) {
    const serviciosAgrupados = {};
 
@@ -298,6 +409,7 @@ this.doc.fontSize(9)
        categorias_id: detalle.categorias_id,
        unidades_medida_id: detalle.unidades_medida_id,
        cantidad: detalle.cantidad,
+       precio_usado: detalle.precio_usado,
        unidad_medida: detalle.unidad_medida,
        subtotal: detalle.subtotal
      });
@@ -314,7 +426,6 @@ this.doc.fontSize(9)
        };
      }
      
-     // ✅ AGREGAR CATEGORÍA AL SERVICIO
      const categoriaData = {
        detalles_id: detalle.detalles_id,
        categorias_id: detalle.categorias_id,
@@ -322,11 +433,8 @@ this.doc.fontSize(9)
        cantidad_anos: detalle.cantidad_anos || 1,
        precio_usado: detalle.precio_usado || 0,
        subtotal: detalle.subtotal || 0,
-       // ✅ UNIDAD DE MEDIDA DIRECTA (prioritaria)
        unidad_medida: detalle.unidad_medida || null,
-       // ✅ UNIDAD DE MEDIDA DEL SERVICIO (fallback)
        unidad_medida_servicio: detalle.servicio?.categoria?.unidad_medida || null,
-       // ✅ DATOS LEGACY PARA COMPATIBILIDAD
        cantidad_equipos: detalle.cantidad_equipos || 0,
        cantidad_servicios: detalle.cantidad_servicios || 0,
        cantidad_gb: detalle.cantidad_gb || 0
@@ -339,23 +447,22 @@ this.doc.fontSize(9)
    return serviciosAgrupados;
  }
 
- // ✅ NUEVA FUNCIÓN: Formatear cantidad por categoría
- _formatearCantidadCategoria(categoria) {
-   console.log('🔍 DEBUG: Formateando categoría:', categoria);
+ _formatearCantidadCategoriaCorregida(categoria) {
+   console.log('🔍 DEBUG: Formateando categoría CORREGIDA:', categoria);
 
    const cantidad = categoria.cantidad || 0;
    const años = categoria.cantidad_anos || 1;
+   const precioUsado = categoria.precio_usado || 0;
    
-   // ✅ PRIORIDAD 1: Usar unidad de medida directa del detalle
    let unidadMedida = categoria.unidad_medida;
    
-   // ✅ PRIORIDAD 2: Usar unidad de medida del servicio
    if (!unidadMedida && categoria.unidad_medida_servicio) {
      unidadMedida = categoria.unidad_medida_servicio;
      console.log('📋 Usando unidad de medida del servicio como fallback');
    }
 
    let cantidadTexto = '';
+   let descripcionUnidad = '';
 
    if (unidadMedida && cantidad > 0) {
      const nombreUnidad = unidadMedida.nombre || 'Unidades';
@@ -366,46 +473,78 @@ this.doc.fontSize(9)
      
      switch (tipoUnidad) {
        case 'capacidad':
-         cantidadTexto = `${nombreUnidad}: ${cantidad} ${abreviacion}`;
+         descripcionUnidad = `${nombreUnidad}: ${cantidad} ${abreviacion}`;
          break;
        case 'usuarios':
-         cantidadTexto = `${nombreUnidad}: ${cantidad}`;
+         descripcionUnidad = `${nombreUnidad}: ${cantidad}`;
          break;
        case 'sesiones':
-         cantidadTexto = `${nombreUnidad}: ${cantidad}`;
+         descripcionUnidad = `${nombreUnidad}: ${cantidad}`;
          break;
        case 'tiempo':
-         cantidadTexto = `${nombreUnidad}: ${cantidad} ${abreviacion}`;
+         descripcionUnidad = `${nombreUnidad}: ${cantidad} ${abreviacion}`;
          break;
        case 'cantidad':
        default:
-         cantidadTexto = `${nombreUnidad}: ${cantidad}`;
+         descripcionUnidad = `${nombreUnidad}: ${cantidad}`;
          break;
      }
    } else {
-     // ✅ FALLBACK: Usar datos legacy si no hay unidad de medida
      console.log('⚠️ Sin unidad de medida, usando datos legacy');
      
      if (cantidad > 0) {
-       cantidadTexto = `Cantidad: ${cantidad}`;
+       descripcionUnidad = `Cantidad: ${cantidad}`;
      } else if (categoria.cantidad_servicios > 0) {
-       cantidadTexto = `Servicios: ${categoria.cantidad_servicios}`;
+       descripcionUnidad = `Servicios: ${categoria.cantidad_servicios}`;
+       cantidad = categoria.cantidad_servicios;
      } else if (categoria.cantidad_gb > 0) {
-       cantidadTexto = `Almacenamiento: ${categoria.cantidad_gb} GB`;
+       descripcionUnidad = `Almacenamiento: ${categoria.cantidad_gb} GB`;
+       cantidad = categoria.cantidad_gb;
      } else {
-       cantidadTexto = 'Servicio contratado';
+       descripcionUnidad = 'Servicio contratado';
+       cantidad = 1;
      }
    }
 
-   // ✅ AGREGAR EQUIPOS ADICIONALES SI EXISTEN
    if (categoria.cantidad_equipos > 0) {
-     cantidadTexto += ` | Equipos adicionales: ${categoria.cantidad_equipos}`;
+     descripcionUnidad += ` | Equipos adicionales: ${categoria.cantidad_equipos}`;
    }
 
-   // ✅ AGREGAR AÑOS SIEMPRE
-   cantidadTexto += ` | Duración: ${años} año${años > 1 ? 's' : ''}`;
+   let costoMensualCategoria = 0;
 
-   console.log('✅ Texto final formateado:', cantidadTexto);
+   if (precioUsado > 0 && cantidad > 0) {
+     const precioMensualUnitario = precioUsado;
+     costoMensualCategoria = precioMensualUnitario * cantidad;
+     const costoAnualTotal = costoMensualCategoria * 12;
+     const costoTotalContrato = costoAnualTotal * años;
+     
+     cantidadTexto = `${descripcionUnidad} | `;
+     cantidadTexto += `$${precioMensualUnitario.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes`;
+     
+     if (cantidad > 1) {
+       cantidadTexto += ` × ${cantidad} = $${costoMensualCategoria.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes`;
+     }
+     
+     cantidadTexto += ` × 12 meses = $${costoAnualTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/año`;
+     
+     if (años > 1) {
+       cantidadTexto += ` × ${años} años = $${costoTotalContrato.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+     }
+   } else {
+     cantidadTexto = `${descripcionUnidad} | Duración: ${años} año${años > 1 ? 's' : ''}`;
+   }
+
+   console.log('✅ Texto final formateado CORREGIDO:', cantidadTexto);
+   console.log('✅ Costo mensual categoría:', costoMensualCategoria);
+   
+   return {
+     cantidadTexto,
+     costoMensualCategoria
+   };
+ }
+
+ _formatearCantidadCategoria(categoria) {
+   const { cantidadTexto } = this._formatearCantidadCategoriaCorregida(categoria);
    return cantidadTexto;
  }
 }

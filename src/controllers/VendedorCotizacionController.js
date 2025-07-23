@@ -1,5 +1,6 @@
-const { Cotizacion, CotizacionDetalle, Cliente, Usuario, Servicio, Categoria } = require('../models');
+const { Cotizacion, CotizacionDetalle, Cliente, Usuario, Servicio, Categoria, UnidadMedida } = require('../models');
 const { Op } = require('sequelize');
+const PDFGenerator = require('../utils/pdfGenerator'); // ✅ IMPORTAR EL GENERADOR
 
 class VendedorCotizacionController {
   
@@ -105,7 +106,7 @@ class VendedorCotizacionController {
         }
       }
 
-      // Obtener cotizaciones con paginación
+      // ✅ ACTUALIZADO: Include con UnidadMedida para compatibilidad con PDF
       const { count, rows: cotizaciones } = await Cotizacion.findAndCountAll({
         where: whereConditions,
         include: [
@@ -131,9 +132,22 @@ class VendedorCotizacionController {
                 include: [
                   {
                     model: Categoria,
-                    as: 'categoria'
+                    as: 'categoria',
+                    include: [
+                      {
+                        model: UnidadMedida,
+                        as: 'unidad_medida',
+                        attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                      }
+                    ]
                   }
                 ]
+              },
+              // ✅ NUEVO: Include directo de UnidadMedida
+              {
+                model: UnidadMedida,
+                as: 'unidad_medida',
+                attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
               }
             ]
           }
@@ -157,6 +171,7 @@ class VendedorCotizacionController {
           cantidadServicios: detalle.cantidad_servicios || 0,
           cantidadGB: detalle.cantidad_gb || 0,
           cantidadAnos: detalle.cantidad_anos || 1,
+          cantidad: detalle.cantidad || 1, // ✅ AGREGAR para compatibilidad
           precioUsado: parseFloat(detalle.precio_usado),
           subtotal: parseFloat(detalle.subtotal)
         }));
@@ -281,7 +296,7 @@ class VendedorCotizacionController {
     }
   }
 
-  // Obtener una cotización específica del vendedor
+  // ✅ ACTUALIZADO: Obtener una cotización específica con UnidadMedida
   async getMiCotizacionById(req, res) {
     try {
       const { id } = req.params;
@@ -322,9 +337,22 @@ class VendedorCotizacionController {
                 include: [
                   {
                     model: Categoria,
-                    as: 'categoria'
+                    as: 'categoria',
+                    include: [
+                      {
+                        model: UnidadMedida,
+                        as: 'unidad_medida',
+                        attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                      }
+                    ]
                   }
                 ]
+              },
+              // ✅ NUEVO: Include directo de UnidadMedida
+              {
+                model: UnidadMedida,
+                as: 'unidad_medida',
+                attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
               }
             ]
           }
@@ -357,7 +385,7 @@ class VendedorCotizacionController {
       // Formatear datos para el frontend
       const cotizacionFormateada = {
         id: cotizacion.cotizaciones_id,
-        numero: `COT-${new Date().getFullYear()}-${String(cotizacion.cotizaciones_id).padStart(3, '0')}`,
+        numero: `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`,
         cliente: {
           nombre: cotizacion.cliente.nombre_empresa,
           email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado',
@@ -374,6 +402,7 @@ class VendedorCotizacionController {
           cantidadServicios: detalle.cantidad_servicios,
           cantidadGB: detalle.cantidad_gb,
           cantidadAnos: detalle.cantidad_anos || 1,
+          cantidad: detalle.cantidad || 1, // ✅ AGREGAR para compatibilidad
           precioUsado: parseFloat(detalle.precio_usado),
           subtotal: parseFloat(detalle.subtotal)
         })),
@@ -425,12 +454,11 @@ class VendedorCotizacionController {
     }
   }
 
-  // Generar PDF de cotización del vendedor
+  // ✅ MÉTODO COMPLETAMENTE ACTUALIZADO: Usar PDFGenerator
   async generarMiPDF(req, res) {
     try {
       const { id } = req.params;
-      const { tipo = 'copia' } = req.query;
-      // ✅ CORRECCIÓN: Usar req.user.id
+      const { tipo = 'copia' } = req.query; // ✅ Por defecto 'copia' para vendedores
       const usuarioId = req.user?.id;
 
       console.log('🔍 Debug - Generando PDF para cotización:', id, 'usuario:', usuarioId, 'tipo:', tipo);
@@ -442,6 +470,7 @@ class VendedorCotizacionController {
         });
       }
 
+      // ✅ ACTUALIZADO: Include con UnidadMedida para PDF
       const cotizacion = await Cotizacion.findOne({
         where: {
           cotizaciones_id: id,
@@ -466,9 +495,22 @@ class VendedorCotizacionController {
                 include: [
                   {
                     model: Categoria,
-                    as: 'categoria'
+                    as: 'categoria',
+                    include: [
+                      {
+                        model: UnidadMedida,
+                        as: 'unidad_medida',
+                        attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                      }
+                    ]
                   }
                 ]
+              },
+              // ✅ NUEVO: Include directo de UnidadMedida para PDF
+              {
+                model: UnidadMedida,
+                as: 'unidad_medida',
+                attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
               }
             ]
           }
@@ -490,26 +532,32 @@ class VendedorCotizacionController {
         });
       }
 
-      // Importar el método de generación de PDF del controller principal
-      const CotizacionController = require('./cotizacionController');
-      const controllerInstance = new CotizacionController();
-      const pdfBuffer = await controllerInstance.generarPDFCotizacion(cotizacion, tipo);
+      // ✅ USAR EL GENERADOR ACTUALIZADO
+      console.log('📄 Generando PDF usando PDFGenerator actualizado...');
+      const pdfBuffer = await PDFGenerator.generarCotizacionPDF(cotizacion, tipo);
 
-      const numeroDocumento = `COT-${new Date().getFullYear()}-${String(cotizacion.cotizaciones_id).padStart(3, '0')}`;
-      const tipoTexto = tipo === 'copia' ? 'Copia' : 'Original';
-      const nombreArchivo = `${numeroDocumento}_${tipoTexto}.pdf`;
+      const numeroDocumento = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
+      
+      let tipoTexto = '';
+      if (tipo === 'copia') {
+        tipoTexto = '_Copia';
+      } else if (tipo === 'original') {
+        tipoTexto = '_Original';
+      }
+      
+      const nombreArchivo = `${numeroDocumento}${tipoTexto}.pdf`;
 
       // Marcar PDF como generado
       await cotizacion.update({ pdf_generado: true });
 
-      console.log('✅ PDF generado exitosamente:', nombreArchivo);
+      console.log(`✅ PDF generado exitosamente: ${nombreArchivo}`);
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
       res.send(pdfBuffer);
 
     } catch (error) {
-      console.error('Error al generar PDF del vendedor:', error);
+      console.error('❌ Error al generar PDF del vendedor:', error);
       res.status(500).json({
         success: false,
         message: 'Error al generar PDF',
@@ -518,6 +566,7 @@ class VendedorCotizacionController {
     }
   }
 
+// ✅ ACTUALIZADO: Duplicar cotización con mapeo correcto de cantidad
 async duplicarCotizacion(req, res) {
   try {
     const { id } = req.params;
@@ -532,7 +581,7 @@ async duplicarCotizacion(req, res) {
       });
     }
 
-    // Buscar cotización original CON TODOS LOS DATOS
+    // ✅ ACTUALIZADO: Include con UnidadMedida
     const cotizacionOriginal = await Cotizacion.findOne({
       where: {
         cotizaciones_id: id,
@@ -553,9 +602,22 @@ async duplicarCotizacion(req, res) {
               include: [
                 {
                   model: Categoria,
-                  as: 'categoria'
+                  as: 'categoria',
+                  include: [
+                    {
+                      model: UnidadMedida,
+                      as: 'unidad_medida',
+                      attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                    }
+                  ]
                 }
               ]
+            },
+            // ✅ NUEVO: Include directo de UnidadMedida
+            {
+              model: UnidadMedida,
+              as: 'unidad_medida',
+              attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
             }
           ]
         }
@@ -581,15 +643,17 @@ async duplicarCotizacion(req, res) {
         documentoFiscal: cotizacionOriginal.cliente.documento_fiscal
       },
       
-      // ✅ SERVICIOS CON DATOS DIRECTOS (SIN CÁLCULOS COMPLEJOS)
+      // ✅ SERVICIOS CON MAPEO CORRECTO DE CATEGORÍAS
       servicios: cotizacionOriginal.detalles.map(detalle => {
-        console.log('📝 Procesando detalle (datos directos):', {
+        console.log('📝 Procesando detalle con mapeo correcto:', {
           servicio: detalle.servicio.nombre,
+          categorias_id: detalle.categorias_id,
+          cantidad: detalle.cantidad, // ✅ ESTE ES EL VALOR REAL DE LA CANTIDAD POR CATEGORÍA
           cantidad_equipos: detalle.cantidad_equipos,
           cantidad_servicios: detalle.cantidad_servicios,
           cantidad_gb: detalle.cantidad_gb,
           cantidad_anos: detalle.cantidad_anos,
-          precio_usado: detalle.precio_usado, // ✅ Precio unitario original
+          precio_usado: detalle.precio_usado,
           subtotal: detalle.subtotal
         });
 
@@ -599,17 +663,34 @@ async duplicarCotizacion(req, res) {
           descripcion: detalle.servicio.descripcion,
           categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
           
-          // ✅ CANTIDADES ORIGINALES (tal como están en la base de datos)
+          // ✅ MAPEO CORREGIDO: Usar los campos correctos según tu nueva estructura
+          categoriaId: detalle.categorias_id, // ✅ ID de la categoría
+          cantidadPorCategoria: detalle.cantidad || 0, // ✅ CANTIDAD REAL por categoría (no el ID)
+          
+          // ✅ DATOS LEGACY (mantener para compatibilidad)
           cantidadEquipos: detalle.cantidad_equipos || 0,
           cantidadServicios: detalle.cantidad_servicios || 0,
           cantidadGB: detalle.cantidad_gb || 0,
           cantidadAnos: detalle.cantidad_anos || 1,
           
+          // ✅ UNIDAD DE MEDIDA (prioridad a la directa, fallback a la del servicio)
+          unidadMedida: detalle.unidad_medida ? {
+            id: detalle.unidad_medida.unidades_medida_id,
+            nombre: detalle.unidad_medida.nombre,
+            abreviacion: detalle.unidad_medida.abreviacion,
+            tipo: detalle.unidad_medida.tipo
+          } : (detalle.servicio.categoria?.unidad_medida ? {
+            id: detalle.servicio.categoria.unidad_medida.unidades_medida_id,
+            nombre: detalle.servicio.categoria.unidad_medida.nombre,
+            abreviacion: detalle.servicio.categoria.unidad_medida.abreviacion,
+            tipo: detalle.servicio.categoria.unidad_medida.tipo
+          } : null),
+          
           // ✅ PRECIOS DIRECTOS (tal como están en la base de datos)
           precioMinimo: parseFloat(detalle.servicio.precio_minimo),
           precioRecomendado: parseFloat(detalle.servicio.precio_recomendado),
-          precioUsadoOriginal: parseFloat(detalle.precio_usado), // ✅ Precio unitario que usó el vendedor
-          subtotalOriginal: parseFloat(detalle.subtotal) // ✅ Total que se cobró
+          precioUsadoOriginal: parseFloat(detalle.precio_usado),
+          subtotalOriginal: parseFloat(detalle.subtotal)
         };
       }),
       
@@ -626,20 +707,22 @@ async duplicarCotizacion(req, res) {
       // Información adicional
       cotizacionOriginal: {
         id: cotizacionOriginal.cotizaciones_id,
-        numero: `COT-${new Date().getFullYear()}-${String(cotizacionOriginal.cotizaciones_id).padStart(3, '0')}`,
+        numero: `CT${String(cotizacionOriginal.cotizaciones_id).padStart(6, '0')}`,
         total: parseFloat(cotizacionOriginal.total),
         comentario: cotizacionOriginal.comentario
       }
     };
 
-    console.log('✅ Datos para duplicar preparados correctamente (con datos directos)');
+    console.log('✅ Datos para duplicar preparados correctamente con mapeo de categorías');
     console.log('📋 Servicios procesados:', datosParaDuplicar.servicios.length);
     
-    // ✅ Log de ejemplo para verificar los datos
+    // ✅ Log de ejemplo para verificar los datos corregidos
     if (datosParaDuplicar.servicios.length > 0) {
-      console.log('🔍 Ejemplo de servicio procesado:', {
+      console.log('🔍 Ejemplo de servicio procesado con mapeo correcto:', {
         nombre: datosParaDuplicar.servicios[0].nombre,
-        cantidadGB: datosParaDuplicar.servicios[0].cantidadGB,
+        categoriaId: datosParaDuplicar.servicios[0].categoriaId,
+        cantidadPorCategoria: datosParaDuplicar.servicios[0].cantidadPorCategoria,
+        unidadMedida: datosParaDuplicar.servicios[0].unidadMedida,
         precioUsadoOriginal: datosParaDuplicar.servicios[0].precioUsadoOriginal,
         subtotalOriginal: datosParaDuplicar.servicios[0].subtotalOriginal
       });
