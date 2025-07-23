@@ -47,69 +47,94 @@ class ReportesService {
     ];
   }
 
-  // Obtener opciones para filtros (vendedores, servicios, clientes)
-  async getOpcionesReporte() {
-    try {
-      const [vendedores, servicios, clientes, categorias] = await Promise.all([
-        // Vendedores activos
-        sequelize.query(`
-          SELECT DISTINCT u.usuarios_id, u.nombre_completo, u.tipo_usuario
-          FROM usuarios u
-          WHERE u.tipo_usuario IN ('admin', 'vendedor', 'super_usuario')
-            AND u.estado = 'activo'
-          ORDER BY u.nombre_completo
-        `),
-        
-        // Servicios disponibles
-        sequelize.query(`
-          SELECT DISTINCT s.servicios_id, s.nombre, c.nombre as categoria
-          FROM servicios s
-          LEFT JOIN categorias c ON s.categorias_id = c.categorias_id
-          ORDER BY s.nombre
-        `),
-        
-        // Clientes con cotizaciones
-        sequelize.query(`
-          SELECT DISTINCT cl.clientes_id, cl.nombre_empresa, cl.nombre_encargado
-          FROM clientes cl
-          INNER JOIN cotizaciones cot ON cl.clientes_id = cot.clientes_id
-          ORDER BY cl.nombre_empresa
-        `),
-        
-        // Categorías
-        sequelize.query(`
-          SELECT categorias_id, nombre
-          FROM categorias
-          ORDER BY nombre
-        `)
-      ]);
+// Obtener opciones para filtros (vendedores, servicios, clientes)
+async getOpcionesReporte() {
+  try {
+    console.log('🔧 Iniciando getOpcionesReporte...');
+    
+    // Hacer las queries una por una para debuggear
+    const [vendedores] = await sequelize.query(`
+      SELECT DISTINCT u.usuarios_id, u.nombre_completo, u.tipo_usuario
+      FROM usuarios u
+      WHERE u.tipo_usuario IN ('admin', 'vendedor', 'super_usuario')
+        AND u.estado = 'activo'
+      ORDER BY u.nombre_completo
+    `);
+    console.log('✅ Vendedores obtenidos:', vendedores.length);
 
-      return {
-        vendedores: vendedores[0].map(v => ({
-          id: v.usuarios_id,
-          nombre: v.nombre_completo,
-          tipo: v.tipo_usuario
-        })),
-        servicios: servicios[0].map(s => ({
-          id: s.servicios_id,
-          nombre: s.nombre,
-          categoria: s.categoria
-        })),
-        clientes: clientes[0].map(c => ({
-          id: c.clientes_id,
-          empresa: c.nombre_empresa,
-          encargado: c.nombre_encargado
-        })),
-        categorias: categorias[0].map(c => ({
-          id: c.categorias_id,
-          nombre: c.nombre
-        }))
-      };
-    } catch (error) {
-      console.error('Error al obtener opciones de reporte:', error);
-      throw new Error('Error al obtener opciones de reporte');
-    }
+    // Query simple para servicios SIN agrupar por ahora
+    const [servicios] = await sequelize.query(`
+      SELECT DISTINCT s.servicios_id, s.nombre, c.nombre as categoria
+      FROM servicios s
+      LEFT JOIN categorias c ON s.categorias_id = c.categorias_id
+      WHERE s.estado = 'activo'
+      ORDER BY s.nombre
+    `);
+    console.log('✅ Servicios obtenidos:', servicios.length);
+
+    const [clientes] = await sequelize.query(`
+      SELECT DISTINCT cl.clientes_id, cl.nombre_empresa, cl.nombre_encargado
+      FROM clientes cl
+      INNER JOIN cotizaciones cot ON cl.clientes_id = cot.clientes_id
+      ORDER BY cl.nombre_empresa
+    `);
+    console.log('✅ Clientes obtenidos:', clientes.length);
+
+    const [categorias] = await sequelize.query(`
+      SELECT categorias_id, nombre
+      FROM categorias
+      ORDER BY nombre
+    `);
+    console.log('✅ Categorías obtenidas:', categorias.length);
+
+    // Agrupar servicios en JavaScript (más fácil que en SQL)
+    const serviciosAgrupados = {};
+    servicios.forEach(servicio => {
+      // Extraer nombre base removiendo rangos numéricos
+      let nombreBase = servicio.nombre;
+      
+      // Remover patrones como " 1 - 15", " 16 - 35", "+351", etc.
+      nombreBase = nombreBase.replace(/ \d+ - \d+.*$/, '');
+      nombreBase = nombreBase.replace(/ \+\d+.*$/, '');
+      nombreBase = nombreBase.replace(/ \d+-\d+.*$/, '');
+      nombreBase = nombreBase.trim();
+      
+      // Si no existe el grupo, crearlo
+      if (!serviciosAgrupados[nombreBase]) {
+        serviciosAgrupados[nombreBase] = {
+          id: servicio.servicios_id, // Usar el ID del primer servicio
+          nombre: nombreBase,
+          categoria: servicio.categoria
+        };
+      }
+    });
+
+    // Convertir objeto a array
+    const serviciosFinales = Object.values(serviciosAgrupados);
+    console.log('✅ Servicios agrupados:', serviciosFinales.length);
+
+    return {
+      vendedores: vendedores.map(v => ({
+        id: v.usuarios_id,
+        nombre: v.nombre_completo,
+        tipo: v.tipo_usuario
+      })),
+      servicios: serviciosFinales,
+      clientes: clientes.map(c => ({
+        id: c.clientes_id,
+        empresa: c.nombre_empresa,
+        encargado: c.nombre_encargado
+      })),
+      categorias: categorias.map(c => ({
+        id: c.categorias_id,
+        nombre: c.nombre
+      }))
+    };
+  } catch (error) {
+    console.error('❌ Error detallado en getOpcionesReporte:', error);
+    throw new Error('Error al obtener opciones de reporte');
   }
+}
 
   // Generar reporte principal (dispatcher)
   async generarReporte(tipo, filtros) {
@@ -299,78 +324,198 @@ class ReportesService {
     }
   }
 
-  // Reporte de Servicios
-  async generarReporteServicios(filtros) {
-    try {
-      console.log('🔍 Generando reporte de servicios con filtros:', filtros);
-      
-      const fechas = this.procesarFiltrosFecha(filtros);
-      
-      let whereConditions = `c.created_at BETWEEN '${fechas.inicio}' AND '${fechas.fin}'`;
-      let servicioFilter = '';
-      let categoriaFilter = '';
-      
-      if (filtros.servicio && filtros.servicio !== '' && filtros.servicio !== null && !isNaN(parseInt(filtros.servicio))) {
-        servicioFilter = `AND s.servicios_id = ${parseInt(filtros.servicio)}`;
-        console.log('🔍 Filtrando por servicio ID:', filtros.servicio);
-      }
-      
-      if (filtros.categoria && filtros.categoria !== '' && filtros.categoria !== null && !isNaN(parseInt(filtros.categoria))) {
-        categoriaFilter = `AND cat.categorias_id = ${parseInt(filtros.categoria)}`;
-        console.log('🔍 Filtrando por categoría ID:', filtros.categoria);
-      }
-
-      const [rendimientoServicios] = await sequelize.query(`
+// Reporte de Servicios AGRUPADO por nombre base
+async generarReporteServicios(filtros) {
+  try {
+    console.log('🔍 Generando reporte de servicios agrupado con filtros:', filtros);
+    
+    const fechas = this.procesarFiltrosFecha(filtros);
+    
+    let whereConditions = `c.created_at BETWEEN '${fechas.inicio}' AND '${fechas.fin}'`;
+    let servicioFilter = '';
+    let categoriaFilter = '';
+    
+    // ✅ NUEVO FILTRO POR SERVICIO - CORREGIDO
+    if (filtros.servicio && filtros.servicio !== '' && filtros.servicio !== null && !isNaN(parseInt(filtros.servicio))) {
+      // Primero obtener el nombre base del servicio seleccionado
+      const [servicioSeleccionado] = await sequelize.query(`
         SELECT 
-          s.servicios_id,
-          s.nombre,
-          cat.nombre as categoria,
-          COUNT(cd.detalles_id) as cotizaciones,
-          COUNT(CASE WHEN c.estado = 'efectiva' THEN cd.detalles_id END) as efectivas,
-          COALESCE(SUM(CASE WHEN c.estado = 'efectiva' THEN cd.subtotal END), 0) as ingresos,
-          CASE 
-            WHEN COUNT(cd.detalles_id) > 0 
-            THEN ROUND((COUNT(CASE WHEN c.estado = 'efectiva' THEN cd.detalles_id END) * 100.0 / COUNT(cd.detalles_id)), 1)
-            ELSE 0 
-          END as conversion,
-          CASE 
-            WHEN COUNT(CASE WHEN c.estado = 'efectiva' THEN cd.detalles_id END) > 0 
-            THEN ROUND(AVG(CASE WHEN c.estado = 'efectiva' THEN cd.precio_usado END), 2)
-            ELSE 0 
-          END as precioPromedio
-        FROM servicios s
-        LEFT JOIN categorias cat ON s.categorias_id = cat.categorias_id
-        LEFT JOIN cotizacion_detalles cd ON s.servicios_id = cd.servicios_id
-        LEFT JOIN cotizaciones c ON cd.cotizaciones_id = c.cotizaciones_id AND ${whereConditions}
-        LEFT JOIN usuarios u ON c.usuarios_id = u.usuarios_id 
-          AND u.tipo_usuario IN ('admin', 'vendedor', 'super_usuario') 
-          AND u.estado = 'activo'
-        WHERE 1=1 
-          ${servicioFilter}
-          ${categoriaFilter}
-        GROUP BY s.servicios_id, s.nombre, cat.nombre
-        HAVING COUNT(cd.detalles_id) > 0
-        ORDER BY ingresos DESC
+          TRIM(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(
+                          REPLACE(
+                            REPLACE(
+                              REPLACE(
+                                REPLACE(nombre, ' 1 - 15', ''),
+                                ' 16 - 35', ''
+                              ),
+                              ' 36 - 50', ''
+                            ),
+                            ' 51 - 75', ''
+                          ),
+                          ' 76 - 100', ''
+                        ),
+                        ' 101 - 130', ''
+                      ),
+                      ' 131 - 170', ''
+                    ),
+                    ' 171 - 200', ''
+                  ),
+                  ' 201 - 250', ''
+                ),
+                ' 251 - 350', ''
+              ),
+              ' +351', ''
+            )
+          ) as nombre_base
+        FROM servicios 
+        WHERE servicios_id = ${parseInt(filtros.servicio)} 
+        AND estado = 'activo'
       `);
-
-      return {
-        rendimientoServicios: rendimientoServicios.map(s => ({
-          nombre: s.nombre,
-          categoria: s.categoria || 'Sin categoría',
-          cotizaciones: parseInt(s.cotizaciones),
-          efectivas: parseInt(s.efectivas),
-          conversion: parseFloat(s.conversion),
-          ingresos: parseFloat(s.ingresos),
-          precioPromedio: parseFloat(s.precioPromedio)
-        })),
-        filtros: filtros,
-        periodo: fechas
-      };
-    } catch (error) {
-      console.error('Error en generarReporteServicios:', error);
-      throw new Error('Error al obtener datos del gráfico de servicios');
+      
+      if (servicioSeleccionado.length > 0) {
+        const nombreBase = servicioSeleccionado[0].nombre_base;
+        servicioFilter = `AND TRIM(
+          REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(
+                          REPLACE(
+                            REPLACE(
+                              REPLACE(s.nombre, ' 1 - 15', ''),
+                              ' 16 - 35', ''
+                            ),
+                            ' 36 - 50', ''
+                          ),
+                          ' 51 - 75', ''
+                        ),
+                        ' 76 - 100', ''
+                      ),
+                      ' 101 - 130', ''
+                    ),
+                    ' 131 - 170', ''
+                  ),
+                  ' 171 - 200', ''
+                ),
+                ' 201 - 250', ''
+              ),
+              ' 251 - 350', ''
+            ),
+            ' +351', ''
+          )
+        ) = '${nombreBase}'`;
+        console.log('🔍 Filtrando por nombre base del servicio:', nombreBase);
+      } else {
+        console.log('⚠️ No se encontró servicio con ID:', filtros.servicio);
+      }
     }
+    
+    if (filtros.categoria && filtros.categoria !== '' && filtros.categoria !== null && !isNaN(parseInt(filtros.categoria))) {
+      categoriaFilter = `AND cat.categorias_id = ${parseInt(filtros.categoria)}`;
+      console.log('🔍 Filtrando por categoría ID:', filtros.categoria);
+    }
+
+    // ✅ QUERY PRINCIPAL SIN REGEXP - USA REPLACE MÚLTIPLES
+    const [rendimientoServicios] = await sequelize.query(`
+      SELECT 
+        -- Extraer nombre base usando REPLACE múltiples
+        TRIM(
+          REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(
+                          REPLACE(
+                            REPLACE(
+                              REPLACE(s.nombre, ' 1 - 15', ''),
+                              ' 16 - 35', ''
+                            ),
+                            ' 36 - 50', ''
+                          ),
+                          ' 51 - 75', ''
+                        ),
+                        ' 76 - 100', ''
+                      ),
+                      ' 101 - 130', ''
+                    ),
+                    ' 131 - 170', ''
+                  ),
+                  ' 171 - 200', ''
+                ),
+                ' 201 - 250', ''
+              ),
+              ' 251 - 350', ''
+            ),
+            ' +351', ''
+          )
+        ) as nombre_base,
+        cat.nombre as categoria,
+        COUNT(cd.detalles_id) as cotizaciones,
+        COUNT(CASE WHEN c.estado = 'efectiva' THEN cd.detalles_id END) as efectivas,
+        COALESCE(SUM(CASE WHEN c.estado = 'efectiva' THEN cd.subtotal END), 0) as ingresos,
+        CASE 
+          WHEN COUNT(cd.detalles_id) > 0 
+          THEN ROUND((COUNT(CASE WHEN c.estado = 'efectiva' THEN cd.detalles_id END) * 100.0 / COUNT(cd.detalles_id)), 1)
+          ELSE 0 
+        END as conversion,
+        CASE 
+          WHEN COUNT(CASE WHEN c.estado = 'efectiva' THEN cd.detalles_id END) > 0 
+          THEN ROUND(AVG(CASE WHEN c.estado = 'efectiva' THEN cd.precio_usado END), 2)
+          ELSE 0 
+        END as precioPromedio,
+        -- Información adicional para debugging
+        GROUP_CONCAT(DISTINCT s.nombre ORDER BY s.nombre SEPARATOR ' | ') as servicios_incluidos,
+        COUNT(DISTINCT s.servicios_id) as cantidad_variantes
+      FROM servicios s
+      LEFT JOIN categorias cat ON s.categorias_id = cat.categorias_id
+      LEFT JOIN cotizacion_detalles cd ON s.servicios_id = cd.servicios_id
+      LEFT JOIN cotizaciones c ON cd.cotizaciones_id = c.cotizaciones_id AND ${whereConditions}
+      LEFT JOIN usuarios u ON c.usuarios_id = u.usuarios_id 
+        AND u.tipo_usuario IN ('admin', 'vendedor', 'super_usuario') 
+        AND u.estado = 'activo'
+      WHERE s.estado = 'activo'
+        ${servicioFilter}
+        ${categoriaFilter}
+      GROUP BY nombre_base, cat.nombre
+      HAVING COUNT(cd.detalles_id) > 0
+      ORDER BY ingresos DESC
+    `);
+
+    console.log('✅ Servicios encontrados:', rendimientoServicios.length);
+
+    return {
+      rendimientoServicios: rendimientoServicios.map(s => ({
+        nombre: s.nombre_base,
+        categoria: s.categoria || 'Sin categoría',
+        cotizaciones: parseInt(s.cotizaciones),
+        efectivas: parseInt(s.efectivas),
+        conversion: parseFloat(s.conversion),
+        ingresos: parseFloat(s.ingresos),
+        precioPromedio: parseFloat(s.precioPromedio),
+        // Campos adicionales para información
+        serviciosIncluidos: s.servicios_incluidos,
+        cantidadVariantes: parseInt(s.cantidad_variantes)
+      })),
+      filtros: filtros,
+      periodo: fechas
+    };
+  } catch (error) {
+    console.error('Error en generarReporteServicios:', error);
+    throw new Error('Error al obtener datos del gráfico de servicios');
   }
+}
 
   // Reporte de Clientes
   async generarReporteClientes(filtros) {
