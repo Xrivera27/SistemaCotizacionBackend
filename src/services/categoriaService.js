@@ -42,7 +42,7 @@ class CategoriaService {
             model: UnidadMedida,
             as: 'unidad_medida',
             attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo'],
-            required: false // ✅ CORREGIDO: Cambiar de true a false
+            required: false
           }
         ],
         order: [['created_at', 'DESC']],
@@ -86,7 +86,7 @@ class CategoriaService {
             model: UnidadMedida,
             as: 'unidad_medida',
             attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo', 'descripcion'],
-            required: false // ✅ CORREGIDO: Cambiar de true a false
+            required: false
           }
         ]
       });
@@ -112,9 +112,7 @@ class CategoriaService {
   // Crear nueva categoría
   async createCategoria(categoriaData) {
     try {
-      console.log('📝 Creando categoría con datos:', categoriaData);
-      
-      // ✅ CORREGIDO: Verificar que viene la unidad de medida
+      // Verificar que viene la unidad de medida
       if (!categoriaData.unidades_medida_id) {
         return {
           success: false,
@@ -169,8 +167,6 @@ class CategoriaService {
           attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
         }]
       });
-      
-      console.log('✅ Categoría creada con unidad de medida:', unidadMedida.nombre);
       
       return {
         success: true,
@@ -267,7 +263,7 @@ class CategoriaService {
             model: UnidadMedida,
             as: 'unidad_medida',
             attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo'],
-            required: false // ✅ CORREGIDO: Cambiar de true a false
+            required: false
           }
         ]
       });
@@ -370,16 +366,12 @@ class CategoriaService {
   // Obtener estadísticas de categorías
   async getEstadisticas() {
     try {
-      console.log('📊 Iniciando cálculo de estadísticas...');
-      
       // Estadísticas básicas
       const [total, activas, inactivas] = await Promise.all([
         Categoria.count(),
         Categoria.count({ where: { estado: 'activo' } }),
         Categoria.count({ where: { estado: 'inactivo' } })
       ]);
-      
-      console.log(`📊 Conteos básicos - Total: ${total}, Activas: ${activas}, Inactivas: ${inactivas}`);
       
       // Categorías activas con servicios activos
       const [conServiciosResult] = await sequelize.query(`
@@ -393,8 +385,6 @@ class CategoriaService {
       
       const conServiciosActivos = parseInt(conServiciosResult.count) || 0;
       const sinServiciosActivos = activas - conServiciosActivos;
-      
-      console.log(`📊 Servicios - Con servicios: ${conServiciosActivos}, Sin servicios: ${sinServiciosActivos}`);
       
       // Categorías con más servicios (incluir unidad de medida)
       const categoriasMasServicios = await sequelize.query(`
@@ -430,8 +420,6 @@ class CategoriaService {
         }
       };
       
-      console.log('✅ Estadísticas calculadas exitosamente:', estadisticas);
-      
       return {
         success: true,
         estadisticas
@@ -462,7 +450,7 @@ class CategoriaService {
           model: UnidadMedida,
           as: 'unidad_medida',
           attributes: ['nombre', 'abreviacion', 'tipo'],
-          required: false // ✅ CORREGIDO: Cambiar de true a false
+          required: false
         }],
         attributes: [
           'categorias_id',
@@ -493,7 +481,7 @@ class CategoriaService {
           model: UnidadMedida,
           as: 'unidad_medida',
           attributes: ['nombre', 'abreviacion', 'tipo'],
-          required: false // ✅ CORREGIDO: Cambiar de true a false
+          required: false
         }],
         attributes: [
           'categorias_id',

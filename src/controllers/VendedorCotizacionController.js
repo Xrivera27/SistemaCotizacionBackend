@@ -7,12 +7,11 @@ class VendedorCotizacionController {
   // Obtener mis cotizaciones con filtros y paginación
   async getMisCotizaciones(req, res) {
     try {
-      // 🔍 DEBUG para ver qué tenemos
-      console.log('🔍 Debug - req.user completo:', JSON.stringify(req.user, null, 2));
+      
       
       // ✅ CORRECCIÓN: Usar req.user.id (que contiene usuarios_id)
       const usuarioId = req.user?.id; 
-      console.log('🔍 Debug - Usuario ID del middleware:', usuarioId);
+      
       
       if (!usuarioId) {
         return res.status(400).json({
@@ -35,7 +34,7 @@ class VendedorCotizacionController {
       };
       let clienteWhere = {};
 
-      console.log('🔍 Debug - Where conditions:', whereConditions);
+      
 
       // Filtro de búsqueda
       if (search) {
@@ -158,7 +157,7 @@ class VendedorCotizacionController {
         distinct: true
       });
 
-      console.log('🔍 Debug - Cotizaciones encontradas:', count);
+      
 
       // Formatear datos para el frontend
       const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
@@ -204,7 +203,7 @@ class VendedorCotizacionController {
         hasPrevPage: parseInt(page) > 1
       };
 
-      console.log('✅ Cotizaciones formateadas exitosamente');
+      
 
       res.json({
         success: true,
@@ -225,11 +224,6 @@ class VendedorCotizacionController {
   // Obtener estadísticas del vendedor
   async getMisEstadisticas(req, res) {
     try {
-      console.log('🔍 Debug - req.user completo (estadísticas):', JSON.stringify(req.user, null, 2));
-      
-      // ✅ CORRECCIÓN: Usar req.user.id
-      const usuarioId = req.user?.id;
-      console.log('🔍 Debug - Usuario ID del middleware para estadísticas:', usuarioId);
 
       if (!usuarioId) {
         return res.status(400).json({
@@ -248,7 +242,7 @@ class VendedorCotizacionController {
         group: ['estado']
       });
 
-      console.log('🔍 Debug - Estadísticas encontradas:', estadisticasEstado);
+     
 
       // Formatear estadísticas
       const stats = {
@@ -279,7 +273,7 @@ class VendedorCotizacionController {
         }
       });
 
-      console.log('🔍 Debug - Stats finales:', stats);
+      
 
       res.json({
         success: true,
@@ -303,7 +297,7 @@ class VendedorCotizacionController {
       // ✅ CORRECCIÓN: Usar req.user.id
       const usuarioId = req.user?.id;
 
-      console.log('🔍 Debug - Buscando cotización:', id, 'para usuario:', usuarioId);
+      
 
       if (!usuarioId) {
         return res.status(400).json({
@@ -437,7 +431,7 @@ class VendedorCotizacionController {
         }
       };
 
-      console.log('✅ Cotización encontrada y formateada');
+      
 
       res.json({
         success: true,
@@ -461,7 +455,7 @@ class VendedorCotizacionController {
       const { tipo = 'copia' } = req.query; // ✅ Por defecto 'copia' para vendedores
       const usuarioId = req.user?.id;
 
-      console.log('🔍 Debug - Generando PDF para cotización:', id, 'usuario:', usuarioId, 'tipo:', tipo);
+      
 
       if (!usuarioId) {
         return res.status(400).json({
@@ -533,7 +527,7 @@ class VendedorCotizacionController {
       }
 
       // ✅ USAR EL GENERADOR ACTUALIZADO
-      console.log('📄 Generando PDF usando PDFGenerator actualizado...');
+      
       const pdfBuffer = await PDFGenerator.generarCotizacionPDF(cotizacion, tipo);
 
       const numeroDocumento = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
@@ -550,7 +544,7 @@ class VendedorCotizacionController {
       // Marcar PDF como generado
       await cotizacion.update({ pdf_generado: true });
 
-      console.log(`✅ PDF generado exitosamente: ${nombreArchivo}`);
+      
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
@@ -572,7 +566,7 @@ async duplicarCotizacion(req, res) {
     const { id } = req.params;
     const usuarioId = req.user?.id;
 
-    console.log('🔍 Debug - Obteniendo datos para duplicar cotización:', id, 'para usuario:', usuarioId);
+    
 
     if (!usuarioId) {
       return res.status(400).json({
@@ -645,17 +639,6 @@ async duplicarCotizacion(req, res) {
       
       // ✅ SERVICIOS CON MAPEO CORRECTO DE CATEGORÍAS
       servicios: cotizacionOriginal.detalles.map(detalle => {
-        console.log('📝 Procesando detalle con mapeo correcto:', {
-          servicio: detalle.servicio.nombre,
-          categorias_id: detalle.categorias_id,
-          cantidad: detalle.cantidad, // ✅ ESTE ES EL VALOR REAL DE LA CANTIDAD POR CATEGORÍA
-          cantidad_equipos: detalle.cantidad_equipos,
-          cantidad_servicios: detalle.cantidad_servicios,
-          cantidad_gb: detalle.cantidad_gb,
-          cantidad_anos: detalle.cantidad_anos,
-          precio_usado: detalle.precio_usado,
-          subtotal: detalle.subtotal
-        });
 
         return {
           id: detalle.servicios_id,
@@ -713,21 +696,9 @@ async duplicarCotizacion(req, res) {
       }
     };
 
-    console.log('✅ Datos para duplicar preparados correctamente con mapeo de categorías');
-    console.log('📋 Servicios procesados:', datosParaDuplicar.servicios.length);
+   
     
-    // ✅ Log de ejemplo para verificar los datos corregidos
-    if (datosParaDuplicar.servicios.length > 0) {
-      console.log('🔍 Ejemplo de servicio procesado con mapeo correcto:', {
-        nombre: datosParaDuplicar.servicios[0].nombre,
-        categoriaId: datosParaDuplicar.servicios[0].categoriaId,
-        cantidadPorCategoria: datosParaDuplicar.servicios[0].cantidadPorCategoria,
-        unidadMedida: datosParaDuplicar.servicios[0].unidadMedida,
-        precioUsadoOriginal: datosParaDuplicar.servicios[0].precioUsadoOriginal,
-        subtotalOriginal: datosParaDuplicar.servicios[0].subtotalOriginal
-      });
-    }
-
+   
     res.json({
       success: true,
       message: 'Datos de cotización obtenidos para duplicar',

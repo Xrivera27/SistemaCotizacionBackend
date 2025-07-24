@@ -11,11 +11,9 @@ class PDFGenerator {
    this.currentY = this.pageMargin;
  }
  
- // ✅ ACTUALIZADO: Agregar parámetro tipo para manejar COPIA
+ // Agregar parámetro tipo para manejar COPIA
  async generarCotizacionPDF(cotizacion, tipo = 'original', outputPath = null) {
    try {
-     console.log('📄 Generando PDF de cotización...');
-     
      this.doc = new PDFDocument({
        size: 'A4',
        margin: this.pageMargin,
@@ -36,7 +34,7 @@ class PDFGenerator {
      const buffers = [];
      this.doc.on('data', buffers.push.bind(buffers));
      
-     await this._construirPDF(cotizacion, tipo); // ✅ PASAR TIPO
+     await this._construirPDF(cotizacion, tipo);
      
      this.doc.end();
      
@@ -44,7 +42,6 @@ class PDFGenerator {
      return new Promise((resolve, reject) => {
        this.doc.on('end', () => {
          const pdfData = Buffer.concat(buffers);
-         console.log('✅ PDF generado exitosamente');
          resolve(pdfData);
        });
        this.doc.on('error', reject);
@@ -56,7 +53,7 @@ class PDFGenerator {
    }
  }
  
- // ✅ ACTUALIZADO: Recibir parámetro tipo
+ // Recibir parámetro tipo
  async _construirPDF(cotizacion, tipo = 'original') {
    // Configurar colores
    const primaryColor = '#2c3e50';
@@ -70,7 +67,7 @@ class PDFGenerator {
             .fillColor(primaryColor)
             .text('PERDOMO Y ASOCIADOS S. DE R.L', 40, yPosition);
 
-   // ✅ NUEVO: MARCA DE COPIA en la esquina superior derecha
+   // MARCA DE COPIA en la esquina superior derecha
    if (tipo === 'copia') {
      this.doc.fontSize(14)
               .fillColor('#f39c12')
@@ -175,8 +172,6 @@ class PDFGenerator {
 
    // AGRUPAR DETALLES POR SERVICIO
    const serviciosAgrupados = this._agruparDetallesPorServicio(cotizacion.detalles);
-   
-   console.log('📊 Servicios agrupados para PDF:', Object.keys(serviciosAgrupados).length);
 
    let servicioIndex = 1;
    let totalMensualReal = 0;
@@ -374,7 +369,7 @@ class PDFGenerator {
      width: 520
    });
 
-   // ✅ NUEVO: MARCA DE AGUA PARA COPIAS (opcional, más sutil)
+   // MARCA DE AGUA PARA COPIAS (opcional, más sutil)
    if (tipo === 'copia') {
      this.doc.fontSize(80)
               .fillColor('#f39c12')
@@ -399,21 +394,8 @@ class PDFGenerator {
 
  _agruparDetallesPorServicio(detalles) {
    const serviciosAgrupados = {};
-
-   console.log('🔍 DEBUG: Agrupando detalles por servicio...');
    
    detalles.forEach((detalle, index) => {
-     console.log(`🔍 DEBUG Detalle ${index + 1}:`, {
-       servicios_id: detalle.servicios_id,
-       servicio_nombre: detalle.servicio?.nombre,
-       categorias_id: detalle.categorias_id,
-       unidades_medida_id: detalle.unidades_medida_id,
-       cantidad: detalle.cantidad,
-       precio_usado: detalle.precio_usado,
-       unidad_medida: detalle.unidad_medida,
-       subtotal: detalle.subtotal
-     });
-
      const servicioId = detalle.servicios_id;
      
      // Inicializar servicio si no existe
@@ -443,13 +425,10 @@ class PDFGenerator {
      serviciosAgrupados[servicioId].categorias.push(categoriaData);
    });
 
-   console.log('✅ Servicios agrupados exitosamente:', Object.keys(serviciosAgrupados));
    return serviciosAgrupados;
  }
 
  _formatearCantidadCategoriaCorregida(categoria) {
-   console.log('🔍 DEBUG: Formateando categoría CORREGIDA:', categoria);
-
    const cantidad = categoria.cantidad || 0;
    const años = categoria.cantidad_anos || 1;
    const precioUsado = categoria.precio_usado || 0;
@@ -458,7 +437,6 @@ class PDFGenerator {
    
    if (!unidadMedida && categoria.unidad_medida_servicio) {
      unidadMedida = categoria.unidad_medida_servicio;
-     console.log('📋 Usando unidad de medida del servicio como fallback');
    }
 
    let cantidadTexto = '';
@@ -468,8 +446,6 @@ class PDFGenerator {
      const nombreUnidad = unidadMedida.nombre || 'Unidades';
      const abreviacion = unidadMedida.abreviacion || '';
      const tipoUnidad = unidadMedida.tipo || 'cantidad';
-     
-     console.log(`📏 Usando unidad: ${nombreUnidad} (${tipoUnidad}) - ${cantidad} ${abreviacion}`);
      
      switch (tipoUnidad) {
        case 'capacidad':
@@ -490,8 +466,6 @@ class PDFGenerator {
          break;
      }
    } else {
-     console.log('⚠️ Sin unidad de medida, usando datos legacy');
-     
      if (cantidad > 0) {
        descripcionUnidad = `Cantidad: ${cantidad}`;
      } else if (categoria.cantidad_servicios > 0) {
@@ -533,9 +507,6 @@ class PDFGenerator {
    } else {
      cantidadTexto = `${descripcionUnidad} | Duración: ${años} año${años > 1 ? 's' : ''}`;
    }
-
-   console.log('✅ Texto final formateado CORREGIDO:', cantidadTexto);
-   console.log('✅ Costo mensual categoría:', costoMensualCategoria);
    
    return {
      cantidadTexto,

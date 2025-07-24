@@ -4,13 +4,11 @@ class PDFService {
   
   async generarReportePDF(tipoReporte, datosReporte, filtros) {
     try {
-      console.log('📄 Generando PDF para reporte:', tipoReporte);
-      
-      // ✅ ORIENTACIÓN HORIZONTAL para más espacio
+      // Orientación horizontal para más espacio
       const doc = new PDFDocument({ 
         margin: 30,
         size: 'A4',
-        layout: 'landscape', // ← CAMBIO CLAVE: Orientación horizontal
+        layout: 'landscape',
         bufferPages: true
       });
       
@@ -110,7 +108,7 @@ class PDFService {
     doc.strokeColor('#3498db')
        .lineWidth(2)
        .moveTo(30, currentY)
-       .lineTo(812 - 30, currentY) // ← Ajustado para A4 horizontal (842-30)
+       .lineTo(812 - 30, currentY)
        .stroke();
     
     doc.moveDown(1.5);
@@ -131,7 +129,7 @@ class PDFService {
     const boxHeight = 60;
     const spacing = 15;
     const totalWidth = (boxWidth * 4) + (spacing * 3);
-    const startX = (842 - totalWidth) / 2; // A4 horizontal = 842px ancho
+    const startX = (842 - totalWidth) / 2;
     
     resumenes.forEach((item, index) => {
       const x = startX + (index * (boxWidth + spacing));
@@ -172,7 +170,7 @@ class PDFService {
       doc.moveDown(1);
     }
     
-    // Tabla de cotizaciones - COLUMNAS MÁS ANCHAS
+    // Tabla de cotizaciones - columnas más anchas
     if (datos.detalleCotizaciones && datos.detalleCotizaciones.length > 0) {
       doc.fontSize(14)
          .font('Helvetica-Bold')
@@ -182,12 +180,12 @@ class PDFService {
       doc.moveDown(0.5);
       
       const headers = ['Código', 'Cliente', 'Vendedor', 'Fecha', 'Total', 'Estado'];
-      const colWidths = [80, 200, 180, 90, 100, 100]; // ← Mucho más anchos
+      const colWidths = [80, 200, 180, 90, 100, 100];
       
       const rows = datos.detalleCotizaciones.slice(0, 15).map(cot => [
         `CT${String(cot.id).padStart(4, '0')}`,
-        cot.cliente, // ← SIN TRUNCAR
-        cot.vendedor.split('(')[0].trim(), // ← SIN TRUNCAR
+        cot.cliente,
+        cot.vendedor.split('(')[0].trim(),
         this.formatearFecha(cot.fecha),
         this.formatearMoneda(cot.total),
         this.getEstadoTexto(cot.estado)
@@ -211,10 +209,10 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Vendedor', 'Rol', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos', 'Ticket Promedio'];
-    const colWidths = [180, 100, 90, 80, 80, 110, 120]; // ← Columnas más anchas
+    const colWidths = [180, 100, 90, 80, 80, 110, 120];
     
     const rows = datos.rendimientoVendedores.map(v => [
-      v.nombre, // ← SIN TRUNCAR
+      v.nombre,
       v.rol,
       v.cotizaciones.toString(),
       v.efectivas.toString(),
@@ -250,10 +248,10 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Servicio', 'Categoría', 'Variantes', 'Cotizaciones', 'Efectivas', 'Conversión', 'Ingresos'];
-    const colWidths = [280, 140, 70, 80, 80, 80, 100]; // ← MUCHO MÁS ANCHO para servicios
+    const colWidths = [280, 140, 70, 80, 80, 80, 100];
     
     const rows = datos.rendimientoServicios.map(s => [
-      s.nombre, // ← SIN TRUNCAR - nombre completo
+      s.nombre,
       s.categoria || 'Sin categoría',
       s.cantidadVariantes.toString(),
       s.cotizaciones.toString(),
@@ -279,12 +277,12 @@ class PDFService {
     doc.moveDown(0.5);
     
     const headers = ['Cliente', 'Empresa', 'Vendedor Asignado', 'Cotizaciones', 'Total Facturado'];
-    const colWidths = [160, 200, 160, 100, 130]; // ← Columnas más anchas
+    const colWidths = [160, 200, 160, 100, 130];
     
     const rows = datos.actividadClientes.map(c => [
-      c.nombreEncargado, // ← SIN TRUNCAR
-      c.empresa, // ← SIN TRUNCAR
-      c.vendedorAsignado, // ← SIN TRUNCAR
+      c.nombreEncargado,
+      c.empresa,
+      c.vendedorAsignado,
       c.totalCotizaciones.toString(),
       this.formatearMoneda(c.totalFacturado)
     ]);
@@ -342,7 +340,7 @@ class PDFService {
       doc.moveDown(0.5);
       
       const headers = ['Mes', 'Cotizaciones', 'Efectivas', 'Ingresos', 'Crecimiento'];
-      const colWidths = [160, 120, 120, 140, 120]; // ← Más anchas
+      const colWidths = [160, 120, 120, 140, 120];
       
       const rows = datos.financiero.detallesMensuales.map(m => [
         m.mes,
@@ -356,19 +354,19 @@ class PDFService {
     }
   }
   
-  // ✅ NUEVA FUNCIÓN PARA TABLAS HORIZONTALES
+  // Nueva función para tablas horizontales
   generarTablaHorizontal(doc, headers, rows, colWidths) {
     const startX = 30;
     let currentY = doc.y;
     const rowHeight = 25;
     const headerHeight = 30;
-    const pageHeight = 550; // ← Menos altura porque es horizontal
+    const pageHeight = 550;
     
     // Headers con diseño moderno
     doc.rect(startX, currentY, colWidths.reduce((a, b) => a + b, 0), headerHeight)
        .fillAndStroke('#34495e', '#34495e');
     
-    doc.fontSize(9) // ← Fuente más pequeña para caber más
+    doc.fontSize(9)
        .font('Helvetica-Bold')
        .fillColor('#ffffff');
     
@@ -384,7 +382,7 @@ class PDFService {
     currentY += headerHeight;
     
     // Filas de datos
-    doc.fontSize(8) // ← Fuente más pequeña
+    doc.fontSize(8)
        .font('Helvetica');
     
     rows.forEach((row, rowIndex) => {
@@ -447,7 +445,7 @@ class PDFService {
     doc.moveDown(2);
   }
   
-  // Métodos auxiliares (sin cambios)
+  // Métodos auxiliares
   formatearMoneda(valor) {
     if (!valor && valor !== 0) return '$0.00';
     return new Intl.NumberFormat('en-US', {

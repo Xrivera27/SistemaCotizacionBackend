@@ -6,9 +6,7 @@ class PDFController {
   
   async generarPDFCotizacion(req, res) {
     try {
-      console.log('=== GENERAR PDF COTIZACION ===');
       const { id } = req.params;
-      console.log('ID cotización:', id);
       
       // Obtener cotización completa
       const result = await getCotizacionById(id);
@@ -38,8 +36,6 @@ class PDFController {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', pdfBuffer.length);
       
-      console.log('✅ PDF generado y enviado');
-      
       res.send(pdfBuffer);
       
     } catch (error) {
@@ -51,51 +47,48 @@ class PDFController {
     }
   }
 
-  // controllers/pdfController.js (método adicional)
-async previewPDFCotizacion(req, res) {
-  try {
-    console.log('=== PREVIEW PDF COTIZACION ===');
-    const { id } = req.params;
-    
-    // Obtener cotización completa
-    const cotizacionService = require('../services/cotizacionService');
-    const result = await cotizacionService.getCotizacionById(id);
-    
-    if (!result.success) {
-      return res.status(404).json(result);
-    }
-    
-    const cotizacion = result.cotizacion;
-    
-    // Verificar permisos
-    if (req.user.tipo_usuario === 'vendedor' && 
-        cotizacion.usuarios_id !== req.user.id) {
-      return res.status(403).json({
+  // Método adicional para preview PDF
+  async previewPDFCotizacion(req, res) {
+    try {
+      const { id } = req.params;
+      
+      // Obtener cotización completa
+      const cotizacionService = require('../services/cotizacionService');
+      const result = await cotizacionService.getCotizacionById(id);
+      
+      if (!result.success) {
+        return res.status(404).json(result);
+      }
+      
+      const cotizacion = result.cotizacion;
+      
+      // Verificar permisos
+      if (req.user.tipo_usuario === 'vendedor' && 
+          cotizacion.usuarios_id !== req.user.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para ver este PDF'
+        });
+      }
+      
+      // Generar PDF
+      const pdfBuffer = await pdfGenerator.generarCotizacionPDF(cotizacion);
+      
+      // Configurar headers para mostrar en el navegador
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      res.send(pdfBuffer);
+      
+    } catch (error) {
+      console.error('❌ Error generando preview PDF:', error);
+      res.status(500).json({
         success: false,
-        message: 'No tienes permisos para ver este PDF'
+        message: 'Error interno del servidor'
       });
     }
-    
-    // Generar PDF
-    const pdfBuffer = await pdfGenerator.generarCotizacionPDF(cotizacion);
-    
-    // Configurar headers para mostrar en el navegador
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Content-Length', pdfBuffer.length);
-    
-    console.log('✅ PDF preview generado');
-    
-    res.send(pdfBuffer);
-    
-  } catch (error) {
-    console.error('❌ Error generando preview PDF:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
   }
-}
 }
 
 module.exports = new PDFController();

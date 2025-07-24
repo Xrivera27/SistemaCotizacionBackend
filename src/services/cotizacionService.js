@@ -9,20 +9,11 @@ async createCotizacion(data) {
  const transaction = await sequelize.transaction();
  
  try {
-   console.log('📝 Iniciando creación de cotización...');
-   console.log('🔥 DEBUG - DATA RECIBIDA COMPLETA:', JSON.stringify(data, null, 2));
-   
    const { cliente, servicios, añosContrato, precioTotal, tipoPrecio, configuracionPDF, comentario, usuarios_id } = data;
-   
-   console.log('🏢 Datos del cliente recibidos:', cliente);
-   console.log('🔍 Cliente ID recibido:', cliente.clientes_id);
-   console.log('📋 SERVICIOS RECIBIDOS:', JSON.stringify(servicios, null, 2));
-   console.log('📊 TOTAL SERVICIOS:', servicios.length);
    
    // 1. Crear o actualizar cliente (MANTENER IGUAL)
    let clienteRecord;
    if (cliente.clientes_id) {
-     console.log('✅ Buscando cliente existente con ID:', cliente.clientes_id);
      clienteRecord = await Cliente.findOne({
        where: {
          clientes_id: cliente.clientes_id,
@@ -32,7 +23,6 @@ async createCotizacion(data) {
      });
      
      if (!clienteRecord) {
-       console.log('❌ Cliente no encontrado con ID:', cliente.clientes_id);
        await transaction.rollback();
        return {
          success: false,
@@ -40,10 +30,7 @@ async createCotizacion(data) {
        };
      }
      
-     console.log('✅ Cliente existente encontrado:', clienteRecord.nombre_empresa);
-     
      if (cliente.nombreEncargado || cliente.nombreEmpresa) {
-       console.log('🔄 Actualizando datos del cliente existente...');
        await clienteRecord.update({
          nombre_encargado: cliente.nombreEncargado || clienteRecord.nombre_encargado,
          telefono_personal: cliente.telefonoPersonal || clienteRecord.telefono_personal,
@@ -53,10 +40,8 @@ async createCotizacion(data) {
          correo_personal: cliente.correoPersonal || clienteRecord.correo_personal,
          correo_empresa: cliente.correoEmpresa || clienteRecord.correo_empresa
        }, { transaction });
-       console.log('✅ Cliente actualizado exitosamente');
      }
    } else {
-     console.log('🆕 Creando nuevo cliente...');
      clienteRecord = await Cliente.create({
        nombre_encargado: cliente.nombreEncargado,
        telefono_personal: cliente.telefonoPersonal || null,
@@ -67,23 +52,14 @@ async createCotizacion(data) {
        correo_empresa: cliente.correoEmpresa || null,
        usuarios_id: usuarios_id
      }, { transaction });
-     console.log('✅ Nuevo cliente creado con ID:', clienteRecord.clientes_id);
    }
    
    // 2. Procesar servicios por categorías individuales
-   console.log('🔍 Procesando servicios con categorías individuales...');
-   console.log('🔥 DEBUG - INICIANDO LOOP DE SERVICIOS, TOTAL:', servicios.length);
-   
    const detallesParaCrear = [];
    let requiereAprobacion = false;
    
    for (let i = 0; i < servicios.length; i++) {
      const servicioItem = servicios[i];
-     console.log(`🔥 DEBUG - SERVICIO ${i + 1}/${servicios.length}:`, JSON.stringify(servicioItem, null, 2));
-     console.log(`🔥 DEBUG - servicioItem.categoriasDetalle:`, servicioItem.categoriasDetalle);
-     console.log(`🔥 DEBUG - categoriasDetalle existe?:`, !!(servicioItem.categoriasDetalle));
-     console.log(`🔥 DEBUG - categoriasDetalle es array?:`, Array.isArray(servicioItem.categoriasDetalle));
-     console.log(`🔥 DEBUG - categoriasDetalle length:`, servicioItem.categoriasDetalle?.length);
      
      const servicio = await Servicio.findByPk(
        servicioItem.servicio.servicios_id || servicioItem.servicio.id,
@@ -105,7 +81,6 @@ async createCotizacion(data) {
      );
      
      if (!servicio) {
-       console.log('❌ Servicio no encontrado:', servicioItem.servicio.servicios_id || servicioItem.servicio.id);
        await transaction.rollback();
        return {
          success: false,
@@ -113,36 +88,17 @@ async createCotizacion(data) {
        };
      }
      
-     console.log(`🔥 DEBUG - SERVICIO ENCONTRADO:`, servicio.nombre);
-     
      // Verificar si el precio está por debajo del mínimo
      if (servicioItem.precioVentaFinal < servicio.precio_minimo) {
-       console.log('⚠️ Precio por debajo del mínimo detectado para:', servicio.nombre);
        requiereAprobacion = true;
      }
      
-     // ✅ CONDICIÓN CRÍTICA: Procesar cada categoría individualmente
-     console.log(`🔥 DEBUG - EVALUANDO CONDICIÓN DE categoriasDetalle:`);
-     console.log(`🔥 DEBUG - servicioItem.categoriasDetalle:`, servicioItem.categoriasDetalle);
-     console.log(`🔥 DEBUG - servicioItem.categoriasDetalle && servicioItem.categoriasDetalle.length > 0:`, 
-       !!(servicioItem.categoriasDetalle && servicioItem.categoriasDetalle.length > 0));
-     
      if (servicioItem.categoriasDetalle && servicioItem.categoriasDetalle.length > 0) {
-       console.log(`✅ ✅ ✅ ENTRANDO EN PROCESAMIENTO DE CATEGORÍAS DETALLADAS`);
-       console.log(`📋 Procesando ${servicioItem.categoriasDetalle.length} categorías para ${servicio.nombre}`);
-       
        for (let j = 0; j < servicioItem.categoriasDetalle.length; j++) {
          const categoriaDetalle = servicioItem.categoriasDetalle[j];
-         console.log(`🔥 DEBUG - CATEGORIA ${j + 1}:`, JSON.stringify(categoriaDetalle, null, 2));
-         console.log(`🔥 DEBUG - categoriaDetalle.cantidad:`, categoriaDetalle.cantidad);
-         console.log(`🔥 DEBUG - cantidad > 0?:`, categoriaDetalle.cantidad > 0);
          
          if (categoriaDetalle.cantidad > 0) {
-           console.log(`✅ PROCESANDO CATEGORIA CON CANTIDAD > 0`);
-           
-           // ✅ CORREGIDO: Buscar categoría con ID correcto
            const categoriaId = categoriaDetalle.id || categoriaDetalle.categorias_id;
-           console.log(`🔥 DEBUG - categoriaId:`, categoriaId);
            
            const categoria = await Categoria.findByPk(categoriaId, {
              include: [
@@ -154,16 +110,11 @@ async createCotizacion(data) {
              transaction
            });
            
-           console.log(`🔥 DEBUG - CATEGORIA ENCONTRADA:`, categoria?.nombre || 'NO ENCONTRADA');
-           
            if (!categoria) {
-             console.log('⚠️ Categoría no encontrada:', categoriaId);
              continue; // Saltar esta categoría
            }
            
            const subtotal = categoriaDetalle.cantidad * servicioItem.precioVentaFinal * añosContrato;
-           
-           console.log(`✅ Categoría ${categoria.nombre}: ${categoriaDetalle.cantidad} ${categoria.unidad_medida?.abreviacion || 'unidades'} = $${subtotal}`);
            
            const detalleParaCrear = {
              servicios_id: servicio.servicios_id,
@@ -178,34 +129,19 @@ async createCotizacion(data) {
              cantidad_gb: categoria.unidad_medida.tipo === 'capacidad' ? categoriaDetalle.cantidad : 0
            };
            
-           console.log(`🔥 DEBUG - DETALLE CREADO PARA CATEGORIA:`, JSON.stringify(detalleParaCrear, null, 2));
-           
-           // ✅ CREAR UN DETALLE POR CADA CATEGORÍA
            detallesParaCrear.push(detalleParaCrear);
-           
-           console.log(`✅ DETALLE AGREGADO AL ARRAY. TOTAL DETALLES:`, detallesParaCrear.length);
-         } else {
-           console.log(`⚠️ CATEGORIA CON CANTIDAD 0 O NEGATIVA, SALTANDO`);
          }
        }
      } else {
-       console.log(`❌ ❌ ❌ NO HAY categoriasDetalle O ESTÁ VACÍO - USANDO FALLBACK`);
-       // ✅ FALLBACK MEJORADO: Si no hay categoriasDetalle, usar método anterior con inferencia
-       console.log(`⚠️ Servicio ${servicio.nombre} sin categorías detalladas, usando fallback mejorado`);
-       
+       // FALLBACK MEJORADO: Si no hay categoriasDetalle, usar método anterior con inferencia
        let cantidadPrincipal = 0;
        let cantidadSecundaria = 0;
        let cantidadGB = 0;
        let categoriasId = servicio.categorias_id;
        let unidadesMedidaId = servicio.categoria?.unidades_medida_id;
        
-       console.log(`🔥 DEBUG FALLBACK - categoriasId inicial:`, categoriasId);
-       console.log(`🔥 DEBUG FALLBACK - unidadesMedidaId inicial:`, unidadesMedidaId);
-       
-       // ✅ VERIFICACIÓN CRÍTICA: Asegurar que tengamos categorias_id válido
+       // Verificar que tengamos categorias_id válido
        if (!categoriasId) {
-         console.log('⚠️ Servicio sin categoría asignada, buscando categoría por defecto...');
-         
          const categoriaDefault = await Categoria.findOne({ 
            include: [
              {
@@ -219,9 +155,7 @@ async createCotizacion(data) {
          if (categoriaDefault) {
            categoriasId = categoriaDefault.categorias_id;
            unidadesMedidaId = categoriaDefault.unidades_medida_id;
-           console.log(`✅ Usando categoría por defecto: ${categoriaDefault.nombre} (ID: ${categoriasId})`);
          } else {
-           console.log('❌ No hay categorías disponibles en el sistema');
            await transaction.rollback();
            return {
              success: false,
@@ -230,10 +164,8 @@ async createCotizacion(data) {
          }
        }
        
-       // ✅ VERIFICACIÓN CRÍTICA: Asegurar que tengamos unidades_medida_id válido
+       // Verificar que tengamos unidades_medida_id válido
        if (!unidadesMedidaId) {
-         console.log('⚠️ Sin unidad de medida, buscando unidad por defecto...');
-         
          const unidadPorDefecto = await UnidadMedida.findOne({
            where: { tipo: 'cantidad' },
            transaction
@@ -241,14 +173,11 @@ async createCotizacion(data) {
          
          if (unidadPorDefecto) {
            unidadesMedidaId = unidadPorDefecto.unidades_medida_id;
-           console.log(`✅ Usando unidad por defecto: ${unidadPorDefecto.nombre} (ID: ${unidadesMedidaId})`);
          } else {
            const primeraUnidad = await UnidadMedida.findOne({ transaction });
            if (primeraUnidad) {
              unidadesMedidaId = primeraUnidad.unidades_medida_id;
-             console.log(`✅ Usando primera unidad disponible: ${primeraUnidad.nombre} (ID: ${unidadesMedidaId})`);
            } else {
-             console.log('❌ No hay unidades de medida disponibles en el sistema');
              await transaction.rollback();
              return {
                success: false,
@@ -258,16 +187,9 @@ async createCotizacion(data) {
          }
        }
        
-       console.log(`🔥 DEBUG FALLBACK - cantidades del servicioItem:`);
-       console.log(`🔥 DEBUG FALLBACK - cantidadServidores:`, servicioItem.cantidadServidores);
-       console.log(`🔥 DEBUG FALLBACK - cantidadEquipos:`, servicioItem.cantidadEquipos);
-       console.log(`🔥 DEBUG FALLBACK - cantidadGB:`, servicioItem.cantidadGB);
-       console.log(`🔥 DEBUG FALLBACK - cantidadGb:`, servicioItem.cantidadGb);
-       
-       // ✅ PROCESAR CANTIDADES SEGÚN EL TIPO DE UNIDAD CON INFERENCIA
+       // Procesar cantidades según el tipo de unidad con inferencia
        if (servicio.categoria && servicio.categoria.unidad_medida) {
          const tipoUnidad = servicio.categoria.unidad_medida.tipo;
-         console.log(`📏 Procesando según tipo de unidad: ${tipoUnidad}`);
          
          switch (tipoUnidad) {
            case 'capacidad':
@@ -278,9 +200,6 @@ async createCotizacion(data) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
                cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
                cantidadGB = cantidadPrincipal;
-               console.log(`💡 Capacidad inferida del precio: ${cantidadPrincipal} GB`);
-             } else {
-               console.log(`💾 Capacidad: ${cantidadPrincipal} GB`);
              }
              break;
              
@@ -290,9 +209,6 @@ async createCotizacion(data) {
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
                cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
-               console.log(`💡 Usuarios inferidos del precio: ${cantidadPrincipal}`);
-             } else {
-               console.log(`👥 Usuarios: ${cantidadPrincipal}`);
              }
              break;
              
@@ -302,9 +218,6 @@ async createCotizacion(data) {
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
                cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
-               console.log(`💡 Sesiones inferidas del precio: ${cantidadPrincipal}`);
-             } else {
-               console.log(`🔗 Sesiones: ${cantidadPrincipal}`);
              }
              break;
              
@@ -314,9 +227,6 @@ async createCotizacion(data) {
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
                cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
-               console.log(`💡 Tiempo inferido del precio: ${cantidadPrincipal}`);
-             } else {
-               console.log(`⏰ Tiempo: ${cantidadPrincipal}`);
              }
              break;
              
@@ -328,9 +238,6 @@ async createCotizacion(data) {
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
                cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
-               console.log(`💡 Cantidad inferida del precio: ${cantidadPrincipal}`);
-             } else {
-               console.log(`⚙️ Cantidad: ${cantidadPrincipal} principal, ${cantidadSecundaria} equipos`);
              }
              break;
          }
@@ -338,31 +245,18 @@ async createCotizacion(data) {
          cantidadPrincipal = servicioItem.cantidadServidores || 0;
          cantidadSecundaria = servicioItem.cantidadEquipos || 0;
          
-         // ✅ INFERENCIA PARA SERVICIOS SIN TIPO ESPECÍFICO
+         // Inferencia para servicios sin tipo específico
          if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
            const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
            cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
-           console.log(`💡 Cantidad inferida del precio: ${cantidadPrincipal}`);
-         } else {
-           console.log(`🔧 Sin unidad específica: ${cantidadPrincipal} principal, ${cantidadSecundaria} equipos`);
          }
        }
        
-       // ✅ CALCULAR TOTAL Y VALIDAR QUE NO SEA 0
+       // Calcular total y validar que no sea 0
        const totalUnidades = cantidadPrincipal + cantidadSecundaria;
        const cantidadFinal = Math.max(totalUnidades, 1); // Al menos 1 unidad
        
-       if (totalUnidades === 0) {
-         console.log('⚠️ Total de unidades es 0, asignando 1 por defecto');
-       }
-       
        const subtotal = servicioItem.precioVentaFinal * cantidadFinal * añosContrato;
-       
-       console.log(`📊 Servicio: ${servicio.nombre}`);
-       console.log(`🆔 Categoría ID: ${categoriasId}`);
-       console.log(`📏 Unidad ID: ${unidadesMedidaId}`);
-       console.log(`🔢 Cantidad final: ${cantidadFinal}`);
-       console.log(`💰 Subtotal: ${subtotal}`);
        
        const detalleFallback = {
          servicios_id: servicio.servicios_id,
@@ -377,24 +271,14 @@ async createCotizacion(data) {
          cantidad_gb: cantidadGB
        };
        
-       console.log(`🔥 DEBUG FALLBACK - DETALLE CREADO:`, JSON.stringify(detalleFallback, null, 2));
-       
-       // ✅ CREAR UN DETALLE CON TODOS LOS CAMPOS REQUERIDOS
        detallesParaCrear.push(detalleFallback);
      }
-     
-     console.log(`🔥 DEBUG - FIN DEL SERVICIO ${i + 1}. DETALLES TOTALES:`, detallesParaCrear.length);
    }
-   
-   console.log(`✅ ${detallesParaCrear.length} detalles preparados para crear`);
-   console.log('🔥 DEBUG - TODOS LOS DETALLES ANTES DE CREAR:', JSON.stringify(detallesParaCrear, null, 2));
    
    // 3. Determinar estado de la cotización
    const estado = requiereAprobacion ? 'pendiente_aprobacion' : 'pendiente';
-   console.log('📋 Estado de la cotización:', estado);
    
    // 4. Crear cotización
-   console.log('💾 Creando cotización...');
    const nuevaCotizacion = await Cotizacion.create({
      clientes_id: clienteRecord.clientes_id,
      usuarios_id: usuarios_id,
@@ -409,34 +293,19 @@ async createCotizacion(data) {
      incluir_correo_empresa: configuracionPDF?.incluirCorreoEmpresa || false,
      tipo_precio_pdf: tipoPrecio || 'venta'
    }, { transaction });
-
-   console.log(requiereAprobacion ? 
-     '📋 Cotización pendiente_aprobacion: PDF marcado como generado automáticamente' :
-     '💾 Cotización normal: PDF se generará cuando el usuario lo solicite'
-   );
    
-   // 5. CREAR DETALLES - UNA FILA POR CATEGORÍA
-   console.log('📝 Creando detalles de la cotización...');
-   console.log('🔥 DEBUG - detallesParaCrear ANTES de bulkCreate:', JSON.stringify(detallesParaCrear, null, 2));
-   
+   // 5. Crear detalles - una fila por categoría
    const detallesConCotizacionId = detallesParaCrear.map(detalle => ({
      ...detalle,
      cotizaciones_id: nuevaCotizacion.cotizaciones_id
    }));
-   
-   console.log('🔥 DEBUG - detallesConCotizacionId:', JSON.stringify(detallesConCotizacionId, null, 2));
    
    const detallesCreados = await CotizacionDetalle.bulkCreate(
      detallesConCotizacionId,
      { transaction }
    );
    
-   console.log(`✅ ${detallesCreados.length} detalles de la cotización creados`);
-   console.log('🔥 DEBUG - detallesCreados:', JSON.stringify(detallesCreados, null, 2));
-   
    await transaction.commit();
-   
-   console.log('✅ Cotización creada exitosamente');
    
    const message = requiereAprobacion 
      ? 'Cotización creada y enviada para aprobación debido a precios por debajo del mínimo'
@@ -456,11 +325,9 @@ async createCotizacion(data) {
  }
 }
 
- // RESTO DE MÉTODOS SIN CAMBIOS...
+ // Resto de métodos sin cambios...
  async getCotizaciones(filters) {
    try {
-     console.log('📝 Obteniendo cotizaciones con filtros:', filters);
-     
      const {
        page = 1,
        limit = 10,
@@ -516,8 +383,6 @@ async createCotizacion(data) {
        order: [['fecha_creacion', 'DESC']]
      });
      
-     console.log(`✅ ${cotizaciones.count} cotizaciones encontradas`);
-     
      return {
        success: true,
        cotizaciones: cotizaciones.rows,
@@ -537,8 +402,6 @@ async createCotizacion(data) {
 
  async getCotizacionById(id) {
    try {
-     console.log('📝 Obteniendo cotización por ID:', id);
-     
      const cotizacion = await Cotizacion.findByPk(id, {
        include: [
          {
@@ -586,8 +449,6 @@ async createCotizacion(data) {
        };
      }
      
-     console.log('✅ Cotización encontrada con detalles por categoría');
-     
      return {
        success: true,
        cotizacion
@@ -601,8 +462,6 @@ async createCotizacion(data) {
 
  async updateEstadoCotizacion(id, data) {
    try {
-     console.log('📝 Actualizando estado de cotización:', id);
-     
      const cotizacion = await Cotizacion.findByPk(id);
      
      if (!cotizacion) {
@@ -613,8 +472,6 @@ async createCotizacion(data) {
      }
      
      await cotizacion.update(data);
-     
-     console.log('✅ Estado actualizado exitosamente');
      
      const message = data.estado === 'efectiva' ? 'Cotización aprobada exitosamente' :
                     data.estado === 'rechazada' ? 'Cotización rechazada' :
@@ -634,8 +491,6 @@ async createCotizacion(data) {
 
  async marcarPDFGenerado(cotizacionId, usuarioId) {
    try {
-     console.log('📝 Marcando PDF como generado:', cotizacionId);
-     
      const cotizacion = await Cotizacion.findOne({
        where: {
          cotizaciones_id: cotizacionId,
@@ -652,8 +507,6 @@ async createCotizacion(data) {
      
      await cotizacion.update({ pdf_generado: true });
      
-     console.log('✅ PDF marcado como generado');
-     
      return {
        success: true,
        message: 'PDF marcado como generado exitosamente'
@@ -667,8 +520,6 @@ async createCotizacion(data) {
 
  async getCotizacionesPendientes() {
    try {
-     console.log('📝 Obteniendo cotizaciones pendientes...');
-     
      const cotizaciones = await Cotizacion.findAll({
        where: {
          estado: 'pendiente_aprobacion'
@@ -687,8 +538,6 @@ async createCotizacion(data) {
        order: [['fecha_creacion', 'ASC']]
      });
      
-     console.log(`✅ ${cotizaciones.length} cotizaciones pendientes encontradas`);
-     
      return {
        success: true,
        cotizaciones
@@ -702,8 +551,6 @@ async createCotizacion(data) {
 
  async getEstadisticas(filters = {}) {
    try {
-     console.log('📝 Calculando estadísticas...');
-     
      const whereConditions = {};
      if (filters.usuarios_id) {
        whereConditions.usuarios_id = filters.usuarios_id;
@@ -738,8 +585,6 @@ async createCotizacion(data) {
          Math.round((aprobadas / totalCotizaciones) * 100) : 0
      };
      
-     console.log('✅ Estadísticas calculadas');
-     
      return {
        success: true,
        estadisticas
@@ -755,8 +600,6 @@ async createCotizacion(data) {
    const transaction = await sequelize.transaction();
    
    try {
-     console.log('📝 Duplicando cotización:', cotizacionId);
-     
      const cotizacionOriginal = await Cotizacion.findOne({
        where: {
          cotizaciones_id: cotizacionId,
@@ -822,12 +665,9 @@ async createCotizacion(data) {
       }));
       
       await CotizacionDetalle.bulkCreate(nuevosDetalles, { transaction });
-      console.log(`✅ ${nuevosDetalles.length} detalles duplicados con estructura por categorías`);
     }
     
     await transaction.commit();
-    
-    console.log('✅ Cotización duplicada exitosamente');
     
     return {
       success: true,

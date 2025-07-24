@@ -7,8 +7,6 @@ class UnidadesMedidaController {
   // ==================== OBTENER UNIDADES CON PAGINACIÓN ====================
   async getUnidades(req, res) {
     try {
-      console.log('📡 GET /api/unidades-medida - Parámetros:', req.query);
-      
       const filtros = {
         page: req.query.page || 1,
         limit: req.query.limit || 25,
@@ -43,7 +41,6 @@ class UnidadesMedidaController {
   async getUnidadById(req, res) {
     try {
       const { id } = req.params;
-      console.log(`📡 GET /api/unidades-medida/${id}`);
       
       const result = await unidadesMedidaService.getUnidadById(id);
       
@@ -70,8 +67,6 @@ class UnidadesMedidaController {
   // ==================== CREAR UNIDAD ====================
   async createUnidad(req, res) {
     try {
-      console.log('📡 POST /api/unidades-medida - Datos:', req.body);
-      
       const result = await unidadesMedidaService.createUnidad(req.body);
       
       if (result.success) {
@@ -94,7 +89,6 @@ class UnidadesMedidaController {
   async updateUnidad(req, res) {
     try {
       const { id } = req.params;
-      console.log(`📡 PUT /api/unidades-medida/${id} - Datos:`, req.body);
       
       const result = await unidadesMedidaService.updateUnidad(id, req.body);
       
@@ -118,7 +112,6 @@ class UnidadesMedidaController {
   async deleteUnidad(req, res) {
     try {
       const { id } = req.params;
-      console.log(`📡 DELETE /api/unidades-medida/${id}`);
       
       const result = await unidadesMedidaService.deleteUnidad(id);
       
@@ -142,7 +135,6 @@ class UnidadesMedidaController {
   async restoreUnidad(req, res) {
     try {
       const { id } = req.params;
-      console.log(`📡 POST /api/unidades-medida/${id}/restore`);
       
       const result = await unidadesMedidaService.restoreUnidad(id);
       
@@ -165,8 +157,6 @@ class UnidadesMedidaController {
   // ==================== OBTENER ESTADÍSTICAS ====================
   async getEstadisticas(req, res) {
     try {
-      console.log('📡 GET /api/unidades-medida/estadisticas');
-      
       const result = await unidadesMedidaService.getEstadisticas();
       
       if (result.success) {
@@ -193,7 +183,6 @@ class UnidadesMedidaController {
   async buscarUnidades(req, res) {
     try {
       const { q } = req.query;
-      console.log(`📡 GET /api/unidades-medida/search?q=${q}`);
       
       if (!q || q.trim().length < 2) {
         return res.status(400).json({

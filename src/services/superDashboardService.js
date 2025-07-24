@@ -140,7 +140,7 @@ async getColaboradoresChart() {
       LIMIT 8
     `);
 
-    console.log('📊 Datos colaboradores chart:', results); // DEBUG
+    
 
     const labels = results.map(item => {
       const nombreCompleto = item.nombre_completo;
@@ -260,7 +260,7 @@ async getResumenMensual(mes = 'actual', superUsuarioId) {
      }
    });
 
-   console.log('📊 Datos mejor vendedor:', mejorVendedorResult); // DEBUG
+   
 
    // Formatear nombre del mejor vendedor con su rol
    let mejorVendedorNombre = 'Sin ventas este mes';

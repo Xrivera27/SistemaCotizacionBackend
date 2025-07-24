@@ -7,9 +7,6 @@ class ConfiguracionController {
   // Obtener información personal del usuario logueado
   async getInformacionPersonal(req, res) {
     try {
-      console.log('=== GET INFORMACIÓN PERSONAL ===');
-      console.log('Usuario ID:', req.user.usuarios_id || req.user.id);
-      
       const usuarioId = req.user.usuarios_id || req.user.id;
       
       const usuario = await Usuario.findByPk(usuarioId, {
@@ -27,7 +24,6 @@ class ConfiguracionController {
       });
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -42,8 +38,6 @@ class ConfiguracionController {
         telefono: usuario.telefono || '',
         rolTexto: getRolTexto(usuario.tipo_usuario)
       };
-      
-      console.log('✅ Información personal obtenida');
       
       res.json({
         success: true,
@@ -62,15 +56,11 @@ class ConfiguracionController {
   // Actualizar información personal del usuario logueado
   async actualizarInformacionPersonal(req, res) {
     try {
-      console.log('=== ACTUALIZAR INFORMACIÓN PERSONAL ===');
       const usuarioId = req.user.usuarios_id || req.user.id;
-      console.log('Usuario ID:', usuarioId);
-      console.log('Datos recibidos:', req.validatedData);
       
       const usuario = await Usuario.findByPk(usuarioId);
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -86,7 +76,6 @@ class ConfiguracionController {
       
       // Verificar si hay algún campo para actualizar
       if (!nombre && !email && !nombreUsuario && telefono === undefined) {
-        console.log('❌ No hay campos para actualizar');
         return res.status(400).json({
           success: false,
           message: 'Debe proporcionar al menos un campo para actualizar'
@@ -111,7 +100,6 @@ class ConfiguracionController {
           
           if (usuarioExistente) {
             const campo = usuarioExistente.correo === email ? 'correo' : 'usuario';
-            console.log(`❌ ${campo} ya está en uso`);
             return res.status(400).json({
               success: false,
               message: `El ${campo} ya está en uso`
@@ -127,11 +115,8 @@ class ConfiguracionController {
       if (nombreUsuario !== undefined && nombreUsuario.trim() !== '') datosActualizacion.usuario = nombreUsuario;
       if (telefono !== undefined) datosActualizacion.telefono = telefono; // Puede ser vacío
       
-      console.log('Datos a actualizar:', datosActualizacion);
-      
       // Solo actualizar si hay campos que cambiar
       if (Object.keys(datosActualizacion).length === 0) {
-        console.log('❌ No hay cambios para aplicar');
         return res.status(400).json({
           success: false,
           message: 'No hay cambios para aplicar'
@@ -139,8 +124,6 @@ class ConfiguracionController {
       }
       
       await usuario.update(datosActualizacion);
-      
-      console.log('✅ Información personal actualizada exitosamente');
       
       // Obtener usuario actualizado
       const usuarioActualizado = await Usuario.findByPk(usuarioId, {
@@ -196,14 +179,11 @@ class ConfiguracionController {
   // Cambiar contraseña del usuario logueado
   async cambiarContrasena(req, res) {
     try {
-      console.log('=== CAMBIAR CONTRASEÑA ===');
       const usuarioId = req.user.usuarios_id || req.user.id;
-      console.log('Usuario ID:', usuarioId);
       
       const usuario = await Usuario.findByPk(usuarioId);
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -216,7 +196,6 @@ class ConfiguracionController {
       const isPasswordValid = await usuario.comparePassword(actual);
       
       if (!isPasswordValid) {
-        console.log('❌ Contraseña actual incorrecta');
         return res.status(400).json({
           success: false,
           message: 'La contraseña actual es incorrecta'
@@ -225,7 +204,6 @@ class ConfiguracionController {
       
       // Verificar que las contraseñas nuevas coincidan
       if (nueva !== confirmar) {
-        console.log('❌ Las contraseñas nuevas no coinciden');
         return res.status(400).json({
           success: false,
           message: 'Las contraseñas nuevas no coinciden'
@@ -234,8 +212,6 @@ class ConfiguracionController {
       
       // Actualizar contraseña (se encripta automáticamente en el hook beforeUpdate)
       await usuario.update({ password: nueva });
-      
-      console.log('✅ Contraseña cambiada exitosamente');
       
       res.json({
         success: true,

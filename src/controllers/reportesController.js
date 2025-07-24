@@ -240,41 +240,39 @@ class ReportesController {
   }
 
   // POST /api/reportes/generar-pdf
-async generarPDF(req, res) {
-  try {
-    const { tipo, filtros } = req.body;
-    
-    if (!tipo) {
-      return res.status(400).json({
+  async generarPDF(req, res) {
+    try {
+      const { tipo, filtros } = req.body;
+      
+      if (!tipo) {
+        return res.status(400).json({
+          success: false,
+          message: 'El tipo de reporte es requerido'
+        });
+      }
+
+      // Generar los datos del reporte
+      const datosReporte = await reportesService.generarReporte(tipo, filtros || {});
+      
+      // Generar PDF
+      const pdfResult = await PDFService.generarReportePDF(tipo, datosReporte, filtros);
+      
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${pdfResult.filename}"`);
+      res.setHeader('Content-Length', pdfResult.buffer.length);
+      
+      res.send(pdfResult.buffer);
+      
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      res.status(500).json({
         success: false,
-        message: 'El tipo de reporte es requerido'
+        message: 'Error interno del servidor al generar PDF',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-
-    console.log('📄 Generando PDF para tipo:', tipo, 'con filtros:', filtros);
-
-    // Generar los datos del reporte
-    const datosReporte = await reportesService.generarReporte(tipo, filtros || {});
-    
-    // Generar PDF
-    const pdfResult = await PDFService.generarReportePDF(tipo, datosReporte, filtros);
-    
-    // Configurar headers para descarga
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${pdfResult.filename}"`);
-    res.setHeader('Content-Length', pdfResult.buffer.length);
-    
-    res.send(pdfResult.buffer);
-    
-  } catch (error) {
-    console.error('Error generando PDF:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor al generar PDF',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
   }
-}
 }
 
 module.exports = new ReportesController();

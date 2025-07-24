@@ -7,9 +7,6 @@ class UsuarioController {
   // Obtener todos los usuarios con paginación y filtros
   async getUsuarios(req, res) {
     try {
-      console.log('=== GET USUARIOS ===');
-      console.log('Query params:', req.query);
-      
       const { 
         page = 1, 
         limit = 10, 
@@ -39,8 +36,6 @@ class UsuarioController {
         whereConditions.estado = estado;
       }
       
-      console.log('Condiciones de búsqueda:', whereConditions);
-      
       const usuarios = await Usuario.findAndCountAll({
         where: whereConditions,
         attributes: [
@@ -60,8 +55,6 @@ class UsuarioController {
       });
       
       const totalPages = Math.ceil(usuarios.count / limit);
-      
-      console.log(`✅ Usuarios encontrados: ${usuarios.count}`);
       
       res.json({
         success: true,
@@ -90,9 +83,7 @@ class UsuarioController {
   // Obtener usuario por ID
   async getUsuarioById(req, res) {
     try {
-      console.log('=== GET USUARIO BY ID ===');
       const { id } = req.params;
-      console.log('ID solicitado:', id);
       
       const usuario = await Usuario.findByPk(id, {
         attributes: [
@@ -109,14 +100,11 @@ class UsuarioController {
       });
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
         });
       }
-      
-      console.log('✅ Usuario encontrado:', usuario.usuario);
       
       res.json({
         success: true,
@@ -135,9 +123,6 @@ class UsuarioController {
   // Crear nuevo usuario
   async createUsuario(req, res) {
     try {
-      console.log('=== CREATE USUARIO ===');
-      console.log('Datos recibidos:', { ...req.validatedData, password: '[OCULTO]' });
-      
       const {
         nombre_completo,
         correo,
@@ -158,8 +143,6 @@ class UsuarioController {
       });
       
       if (usuarioExistente) {
-        console.log('❌ Usuario ya existe');
-        
         const campo = usuarioExistente.correo === correo ? 'correo' : 'usuario';
         return res.status(400).json({
           success: false,
@@ -177,8 +160,6 @@ class UsuarioController {
         telefono,
         estado: 'activo'
       });
-      
-      console.log('✅ Usuario creado exitosamente:', nuevoUsuario.usuario);
       
       // Responder sin el password
       const usuarioRespuesta = {
@@ -226,15 +207,11 @@ class UsuarioController {
   // Actualizar usuario
   async updateUsuario(req, res) {
     try {
-      console.log('=== UPDATE USUARIO ===');
       const { id } = req.params;
-      console.log('ID a actualizar:', id);
-      console.log('Datos recibidos:', { ...req.validatedData, password: req.validatedData.password ? '[OCULTO]' : undefined });
       
       const usuario = await Usuario.findByPk(id);
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -268,7 +245,6 @@ class UsuarioController {
         
         if (usuarioExistente) {
           const campo = usuarioExistente.correo === correo ? 'correo' : 'usuario';
-          console.log(`❌ ${campo} ya está en uso`);
           return res.status(400).json({
             success: false,
             message: `El ${campo} ya está en uso`
@@ -286,11 +262,7 @@ class UsuarioController {
       if (telefono !== undefined) datosActualizacion.telefono = telefono;
       if (estado !== undefined) datosActualizacion.estado = estado;
       
-      console.log('Datos a actualizar:', { ...datosActualizacion, password: datosActualizacion.password ? '[OCULTO]' : undefined });
-      
       await usuario.update(datosActualizacion);
-      
-      console.log('✅ Usuario actualizado exitosamente');
       
       // Obtener usuario actualizado sin password
       const usuarioActualizado = await Usuario.findByPk(id, {
@@ -339,14 +311,11 @@ class UsuarioController {
   // Eliminar usuario (soft delete)
   async deleteUsuario(req, res) {
     try {
-      console.log('=== DELETE USUARIO ===');
       const { id } = req.params;
-      console.log('ID a eliminar:', id);
       
       const usuario = await Usuario.findByPk(id);
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -355,7 +324,6 @@ class UsuarioController {
       
       // Verificar que no se esté eliminando a sí mismo
       if (usuario.usuarios_id === req.user.id) {
-        console.log('❌ No se puede eliminar a sí mismo');
         return res.status(400).json({
           success: false,
           message: 'No puedes eliminar tu propia cuenta'
@@ -364,8 +332,6 @@ class UsuarioController {
       
       // Soft delete - cambiar estado a inactivo
       await usuario.update({ estado: 'inactivo' });
-      
-      console.log('✅ Usuario eliminado (desactivado) exitosamente');
       
       res.json({
         success: true,
@@ -384,14 +350,11 @@ class UsuarioController {
   // Restaurar usuario
   async restoreUsuario(req, res) {
     try {
-      console.log('=== RESTORE USUARIO ===');
       const { id } = req.params;
-      console.log('ID a restaurar:', id);
       
       const usuario = await Usuario.findByPk(id);
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -399,8 +362,6 @@ class UsuarioController {
       }
       
       await usuario.update({ estado: 'activo' });
-      
-      console.log('✅ Usuario restaurado exitosamente');
       
       res.json({
         success: true,
@@ -419,16 +380,12 @@ class UsuarioController {
   // Cambiar contraseña
   async changePassword(req, res) {
     try {
-      console.log('=== CHANGE PASSWORD ===');
       const { id } = req.params;
       const { password_actual, password_nuevo } = req.validatedData;
-      
-      console.log('Cambiando contraseña para usuario ID:', id);
       
       const usuario = await Usuario.findByPk(id);
       
       if (!usuario) {
-        console.log('❌ Usuario no encontrado');
         return res.status(404).json({
           success: false,
           message: 'Usuario no encontrado'
@@ -439,7 +396,6 @@ class UsuarioController {
       const isPasswordValid = await usuario.comparePassword(password_actual);
       
       if (!isPasswordValid) {
-        console.log('❌ Contraseña actual incorrecta');
         return res.status(400).json({
           success: false,
           message: 'La contraseña actual es incorrecta'
@@ -448,8 +404,6 @@ class UsuarioController {
       
       // Actualizar contraseña
       await usuario.update({ password: password_nuevo });
-      
-      console.log('✅ Contraseña cambiada exitosamente');
       
       res.json({
         success: true,
@@ -468,8 +422,6 @@ class UsuarioController {
   // Obtener estadísticas de usuarios
   async getEstadisticas(req, res) {
     try {
-      console.log('=== GET ESTADISTICAS USUARIOS ===');
-      
       const [total, activos, inactivos, administradores, vendedores, superUsuarios] = await Promise.all([
         Usuario.count(),
         Usuario.count({ where: { estado: 'activo' } }),
@@ -494,8 +446,6 @@ class UsuarioController {
         }
       };
       
-      console.log('✅ Estadísticas calculadas:', estadisticas);
-      
       res.json({
         success: true,
         data: { estadisticas }
@@ -511,50 +461,44 @@ class UsuarioController {
   }
 
   // Obtener usuarios activos para ser managers (dropdown)
-async getUsuariosParaManager(req, res) {
-  try {
-    console.log('=== GET USUARIOS PARA MANAGER ===');
-    console.log('Usuario solicitante:', req.user.tipo_usuario);
-    
-    let whereConditions = {
-      estado: 'activo'
-    };
-    
-    // ✅ FILTROS SEGÚN ROL DEL USUARIO ACTUAL
-    if (req.user.tipo_usuario === 'vendedor') {
-      // Vendedor solo puede asignarse a sí mismo
-      whereConditions.usuarios_id = req.user.id;
+  async getUsuariosParaManager(req, res) {
+    try {
+      let whereConditions = {
+        estado: 'activo'
+      };
+      
+      // Filtros según rol del usuario actual
+      if (req.user.tipo_usuario === 'vendedor') {
+        // Vendedor solo puede asignarse a sí mismo
+        whereConditions.usuarios_id = req.user.id;
+      }
+      // Admin y super_usuario pueden ver todos los usuarios activos
+      
+      const usuarios = await Usuario.findAll({
+        where: whereConditions,
+        attributes: [
+          'usuarios_id',
+          'nombre_completo',
+          'correo',
+          'usuario',
+          'tipo_usuario'
+        ],
+        order: [['nombre_completo', 'ASC']]
+      });
+      
+      res.json({
+        success: true,
+        data: { usuarios }
+      });
+      
+    } catch (error) {
+      console.error('❌ Error obteniendo usuarios para manager:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
     }
-    // Admin y super_usuario pueden ver todos los usuarios activos
-    
-    const usuarios = await Usuario.findAll({
-      where: whereConditions,
-      attributes: [
-        'usuarios_id',
-        'nombre_completo',
-        'correo',
-        'usuario',
-        'tipo_usuario'
-      ],
-      order: [['nombre_completo', 'ASC']]
-    });
-    
-    console.log(`✅ ${usuarios.length} usuarios disponibles para manager`);
-    
-    res.json({
-      success: true,
-      data: { usuarios }
-    });
-    
-  } catch (error) {
-    console.error('❌ Error obteniendo usuarios para manager:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error interno del servidor'
-    });
   }
-}
-
 }
 
 module.exports = new UsuarioController();

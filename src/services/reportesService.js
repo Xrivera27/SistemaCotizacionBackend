@@ -50,8 +50,6 @@ class ReportesService {
 // Obtener opciones para filtros (vendedores, servicios, clientes)
 async getOpcionesReporte() {
   try {
-    console.log('🔧 Iniciando getOpcionesReporte...');
-    
     // Hacer las queries una por una para debuggear
     const [vendedores] = await sequelize.query(`
       SELECT DISTINCT u.usuarios_id, u.nombre_completo, u.tipo_usuario
@@ -60,7 +58,6 @@ async getOpcionesReporte() {
         AND u.estado = 'activo'
       ORDER BY u.nombre_completo
     `);
-    console.log('✅ Vendedores obtenidos:', vendedores.length);
 
     // Query simple para servicios SIN agrupar por ahora
     const [servicios] = await sequelize.query(`
@@ -70,7 +67,6 @@ async getOpcionesReporte() {
       WHERE s.estado = 'activo'
       ORDER BY s.nombre
     `);
-    console.log('✅ Servicios obtenidos:', servicios.length);
 
     const [clientes] = await sequelize.query(`
       SELECT DISTINCT cl.clientes_id, cl.nombre_empresa, cl.nombre_encargado
@@ -78,14 +74,12 @@ async getOpcionesReporte() {
       INNER JOIN cotizaciones cot ON cl.clientes_id = cot.clientes_id
       ORDER BY cl.nombre_empresa
     `);
-    console.log('✅ Clientes obtenidos:', clientes.length);
 
     const [categorias] = await sequelize.query(`
       SELECT categorias_id, nombre
       FROM categorias
       ORDER BY nombre
     `);
-    console.log('✅ Categorías obtenidas:', categorias.length);
 
     // Agrupar servicios en JavaScript (más fácil que en SQL)
     const serviciosAgrupados = {};
@@ -111,7 +105,6 @@ async getOpcionesReporte() {
 
     // Convertir objeto a array
     const serviciosFinales = Object.values(serviciosAgrupados);
-    console.log('✅ Servicios agrupados:', serviciosFinales.length);
 
     return {
       vendedores: vendedores.map(v => ({
@@ -157,8 +150,6 @@ async getOpcionesReporte() {
   // Reporte de Cotizaciones
   async generarReporteCotizaciones(filtros) {
     try {
-      console.log('🔍 Generando reporte de cotizaciones con filtros:', filtros);
-      
       const fechas = this.procesarFiltrosFecha(filtros);
       
       // Construir condiciones WHERE
@@ -166,12 +157,10 @@ async getOpcionesReporte() {
       
       if (filtros.estado && filtros.estado !== '' && filtros.estado !== null) {
         whereConditions += ` AND c.estado = '${filtros.estado}'`;
-        console.log('🔍 Filtrando por estado:', filtros.estado);
       }
       
       if (filtros.vendedor && filtros.vendedor !== '' && filtros.vendedor !== null && !isNaN(parseInt(filtros.vendedor))) {
         whereConditions += ` AND u.usuarios_id = ${parseInt(filtros.vendedor)}`;
-        console.log('🔍 Filtrando por vendedor ID:', filtros.vendedor);
       }
 
       // Resumen general
@@ -242,8 +231,6 @@ async getOpcionesReporte() {
   // Reporte de Vendedores
   async generarReporteVendedores(filtros) {
     try {
-      console.log('🔍 Generando reporte de vendedores con filtros:', filtros);
-      
       const fechas = this.procesarFiltrosFecha(filtros);
       
       let whereConditions = `c.created_at BETWEEN '${fechas.inicio}' AND '${fechas.fin}'`;
@@ -251,7 +238,6 @@ async getOpcionesReporte() {
       
       if (filtros.vendedor && filtros.vendedor !== '' && filtros.vendedor !== null && !isNaN(parseInt(filtros.vendedor))) {
         vendedorFilter = `AND u.usuarios_id = ${parseInt(filtros.vendedor)}`;
-        console.log('🔍 Filtrando por vendedor ID:', filtros.vendedor);
       }
 
       const [rendimientoVendedores] = await sequelize.query(`
@@ -327,15 +313,13 @@ async getOpcionesReporte() {
 // Reporte de Servicios AGRUPADO por nombre base
 async generarReporteServicios(filtros) {
   try {
-    console.log('🔍 Generando reporte de servicios agrupado con filtros:', filtros);
-    
     const fechas = this.procesarFiltrosFecha(filtros);
     
     let whereConditions = `c.created_at BETWEEN '${fechas.inicio}' AND '${fechas.fin}'`;
     let servicioFilter = '';
     let categoriaFilter = '';
     
-    // ✅ NUEVO FILTRO POR SERVICIO - CORREGIDO
+    // Nuevo filtro por servicio - corregido
     if (filtros.servicio && filtros.servicio !== '' && filtros.servicio !== null && !isNaN(parseInt(filtros.servicio))) {
       // Primero obtener el nombre base del servicio seleccionado
       const [servicioSeleccionado] = await sequelize.query(`
@@ -413,18 +397,14 @@ async generarReporteServicios(filtros) {
             ' +351', ''
           )
         ) = '${nombreBase}'`;
-        console.log('🔍 Filtrando por nombre base del servicio:', nombreBase);
-      } else {
-        console.log('⚠️ No se encontró servicio con ID:', filtros.servicio);
       }
     }
     
     if (filtros.categoria && filtros.categoria !== '' && filtros.categoria !== null && !isNaN(parseInt(filtros.categoria))) {
       categoriaFilter = `AND cat.categorias_id = ${parseInt(filtros.categoria)}`;
-      console.log('🔍 Filtrando por categoría ID:', filtros.categoria);
     }
 
-    // ✅ QUERY PRINCIPAL SIN REGEXP - USA REPLACE MÚLTIPLES
+    // Query principal sin regexp - usa replace múltiples
     const [rendimientoServicios] = await sequelize.query(`
       SELECT 
         -- Extraer nombre base usando REPLACE múltiples
@@ -493,8 +473,6 @@ async generarReporteServicios(filtros) {
       ORDER BY ingresos DESC
     `);
 
-    console.log('✅ Servicios encontrados:', rendimientoServicios.length);
-
     return {
       rendimientoServicios: rendimientoServicios.map(s => ({
         nombre: s.nombre_base,
@@ -520,8 +498,6 @@ async generarReporteServicios(filtros) {
   // Reporte de Clientes
   async generarReporteClientes(filtros) {
     try {
-      console.log('🔍 Generando reporte de clientes con filtros:', filtros);
-      
       const fechas = this.procesarFiltrosFecha(filtros);
       
       let whereConditions = `c.created_at BETWEEN '${fechas.inicio}' AND '${fechas.fin}'`;
@@ -530,12 +506,10 @@ async generarReporteServicios(filtros) {
       
       if (filtros.cliente && filtros.cliente !== '' && filtros.cliente !== null && !isNaN(parseInt(filtros.cliente))) {
         clienteFilter = `AND cl.clientes_id = ${parseInt(filtros.cliente)}`;
-        console.log('🔍 Filtrando por cliente ID:', filtros.cliente);
       }
       
       if (filtros.vendedor && filtros.vendedor !== '' && filtros.vendedor !== null && !isNaN(parseInt(filtros.vendedor))) {
         vendedorFilter = `AND u.usuarios_id = ${parseInt(filtros.vendedor)}`;
-        console.log('🔍 Filtrando por vendedor ID:', filtros.vendedor);
       }
 
       const [actividadClientes] = await sequelize.query(`
@@ -585,8 +559,6 @@ async generarReporteServicios(filtros) {
   // Reporte Financiero
   async generarReporteFinanciero(filtros) {
     try {
-      console.log('🔍 Generando reporte financiero con filtros:', filtros);
-      
       const fechas = this.procesarFiltrosFecha(filtros);
       
       // Ingresos totales del período
@@ -716,61 +688,61 @@ async generarReporteServicios(filtros) {
     return {
       inicio: fechaInicio.toISOString().slice(0, 19).replace('T', ' '),
       fin: fechaFin.toISOString().slice(0, 19).replace('T', ' '),
-      inicioOriginal: fechaInicio,
-      finOriginal: fechaFin
-    };
-  }
+     inicioOriginal: fechaInicio,
+     finOriginal: fechaFin
+   };
+ }
 
-  // Formatear tipo de usuario
-  formatearTipoUsuario(tipo) {
-    const tipos = {
-      'admin': 'Admin',
-      'vendedor': 'Vendedor',
-      'super_usuario': 'Supervisor'
-    };
-    return tipos[tipo] || tipo;
-  }
+ // Formatear tipo de usuario
+ formatearTipoUsuario(tipo) {
+   const tipos = {
+     'admin': 'Admin',
+     'vendedor': 'Vendedor',
+     'super_usuario': 'Supervisor'
+   };
+   return tipos[tipo] || tipo;
+ }
 
-  // Formatear mes (YYYY-MM a nombre legible)
-  formatearMes(mesString) {
-    try {
-      const [año, mes] = mesString.split('-');
-      const fecha = new Date(parseInt(año), parseInt(mes) - 1);
-      return fecha.toLocaleDateString('es-ES', { 
-        year: 'numeric', 
-        month: 'long' 
-      });
-    } catch (error) {
-      return mesString;
-    }
-  }
+ // Formatear mes (YYYY-MM a nombre legible)
+ formatearMes(mesString) {
+   try {
+     const [año, mes] = mesString.split('-');
+     const fecha = new Date(parseInt(año), parseInt(mes) - 1);
+     return fecha.toLocaleDateString('es-ES', { 
+       year: 'numeric', 
+       month: 'long' 
+     });
+   } catch (error) {
+     return mesString;
+   }
+ }
 
-  // Validar filtros
-  validarFiltros(filtros) {
-    const errores = [];
+ // Validar filtros
+ validarFiltros(filtros) {
+   const errores = [];
 
-    if (filtros.periodo === 'custom') {
-      if (!filtros.fechaInicio) {
-        errores.push('Fecha de inicio es requerida para período personalizado');
-      }
-      if (!filtros.fechaFin) {
-        errores.push('Fecha de fin es requerida para período personalizado');
-      }
-      if (filtros.fechaInicio && filtros.fechaFin) {
-        const inicio = new Date(filtros.fechaInicio);
-        const fin = new Date(filtros.fechaFin);
-        if (inicio > fin) {
-          errores.push('La fecha de inicio debe ser anterior a la fecha de fin');
-        }
-      }
-    }
+   if (filtros.periodo === 'custom') {
+     if (!filtros.fechaInicio) {
+       errores.push('Fecha de inicio es requerida para período personalizado');
+     }
+     if (!filtros.fechaFin) {
+       errores.push('Fecha de fin es requerida para período personalizado');
+     }
+     if (filtros.fechaInicio && filtros.fechaFin) {
+       const inicio = new Date(filtros.fechaInicio);
+       const fin = new Date(filtros.fechaFin);
+       if (inicio > fin) {
+         errores.push('La fecha de inicio debe ser anterior a la fecha de fin');
+       }
+     }
+   }
 
-    if (errores.length > 0) {
-      throw new Error(errores.join(', '));
-    }
+   if (errores.length > 0) {
+     throw new Error(errores.join(', '));
+   }
 
-    return true;
-  }
+   return true;
+ }
 }
 
 module.exports = new ReportesService();

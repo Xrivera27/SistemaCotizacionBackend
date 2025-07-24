@@ -1,12 +1,12 @@
 // controllers/cotizacionController.js
 const { Cotizacion, CotizacionDetalle, Cliente, Usuario, Servicio, Categoria, UnidadMedida } = require('../models');
 const { Op } = require('sequelize');
-const PDFGenerator = require('../utils/pdfGenerator'); // ✅ IMPORTAR EL GENERADOR ACTUALIZADO
+const PDFGenerator = require('../utils/pdfGenerator');
 const fs = require('fs');
 const path = require('path');
 
 class CotizacionController {
-  // 🔧 CORREGIDO: getCotizaciones con relación directa a UnidadMedida
+  // Obtener cotizaciones con relación directa a UnidadMedida
   async getCotizaciones(req, res) {
     try {
       const {
@@ -98,7 +98,7 @@ class CotizacionController {
         }
       }
 
-      // 🔧 CORREGIDO: Include actualizado con relación directa a UnidadMedida
+      // Include actualizado con relación directa a UnidadMedida
       const { count, rows: cotizaciones } = await Cotizacion.findAndCountAll({
         where: whereConditions,
         include: [
@@ -136,7 +136,7 @@ class CotizacionController {
                   }
                 ]
               },
-              // 🆕 NUEVO: Include directo de UnidadMedida en CotizacionDetalle
+              // Include directo de UnidadMedida en CotizacionDetalle
               {
                 model: UnidadMedida,
                 as: 'unidad_medida',
@@ -151,7 +151,7 @@ class CotizacionController {
         distinct: true
       });
 
-      // 🔧 FORMATEO ACTUALIZADO con prioridad a relación directa
+      // Formateo actualizado con prioridad a relación directa
       const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
         const serviciosNombres = cotizacion.detalles.map(detalle => detalle.servicio.nombre);
         
@@ -164,7 +164,7 @@ class CotizacionController {
           cantidadServicios: detalle.cantidad_servicios || 0,
           cantidadGB: detalle.cantidad_gb || 0,
           cantidadAnos: detalle.cantidad_anos || 1,
-          // 🔧 CORREGIDO: Usar relación directa primero, fallback a categoria
+          // Usar relación directa primero, fallback a categoria
           unidadMedida: detalle.unidad_medida ? {
             id: detalle.unidad_medida.unidades_medida_id,
             nombre: detalle.unidad_medida.nombre,
@@ -295,7 +295,7 @@ class CotizacionController {
     }
   }
 
-  // 🔧 CORREGIDO: getCotizacionById con nueva estructura
+  // getCotizacionById con nueva estructura
   async getCotizacionById(req, res) {
     try {
       const { id } = req.params;
@@ -332,7 +332,7 @@ class CotizacionController {
                   }
                 ]
               },
-              // 🆕 NUEVO: Include directo de UnidadMedida
+              // Include directo de UnidadMedida
               {
                 model: UnidadMedida,
                 as: 'unidad_medida',
@@ -366,7 +366,7 @@ class CotizacionController {
         });
       }
 
-      // 🔧 FORMATEAR DATOS ACTUALIZADO con prioridad a relación directa
+      // Formatear datos actualizado con prioridad a relación directa
       const cotizacionFormateada = {
         id: cotizacion.cotizaciones_id,
         cliente: {
@@ -385,7 +385,7 @@ class CotizacionController {
           cantidadServicios: detalle.cantidad_servicios,
           cantidadGB: detalle.cantidad_gb,
           cantidadAnos: detalle.cantidad_anos || 1,
-          // 🔧 CORREGIDO: Usar relación directa primero, fallback a categoria
+          // Usar relación directa primero, fallback a categoria
           unidadMedida: detalle.unidad_medida ? {
             id: detalle.unidad_medida.unidades_medida_id,
             nombre: detalle.unidad_medida.nombre,
@@ -452,11 +452,11 @@ class CotizacionController {
     }
   }
 
-  // ✅ MÉTODO ACTUALIZADO: Usar PDFGenerator en lugar de método interno
+  // Usar PDFGenerator en lugar de método interno
   async generarPDF(req, res) {
     try {
       const { id } = req.params;
-      const { tipo = 'original' } = req.query; // ✅ CAMBIO: Default a 'original' para admins
+      const { tipo = 'original' } = req.query;
 
       const cotizacion = await Cotizacion.findByPk(id, {
         include: [
@@ -489,7 +489,7 @@ class CotizacionController {
                   }
                 ]
               },
-              // 🆕 NUEVO: Include directo para PDF
+              // Include directo para PDF
               {
                 model: UnidadMedida,
                 as: 'unidad_medida',
@@ -507,14 +507,11 @@ class CotizacionController {
         });
       }
 
-      // ✅ USAR EL GENERADOR ACTUALIZADO
-      console.log('📄 Generando PDF usando PDFGenerator actualizado...');
-      const pdfBuffer = await PDFGenerator.generarCotizacionPDF(cotizacion, tipo); // ✅ AGREGAR tipo
-
+      const pdfBuffer = await PDFGenerator.generarCotizacionPDF(cotizacion, tipo);
 
       const numeroDocumento = `CT${String(cotizacion.cotizaciones_id).padStart(6, '0')}`;
       
-      // ✅ CAMBIO: Permitir que el admin especifique si es copia u original
+      // Permitir que el admin especifique si es copia u original
       let tipoTexto = '';
       if (tipo === 'copia') {
         tipoTexto = '_Copia';
@@ -526,8 +523,6 @@ class CotizacionController {
 
       // Marcar PDF como generado
       await cotizacion.update({ pdf_generado: true });
-
-      console.log(`✅ PDF generado exitosamente: ${nombreArchivo}`);
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
@@ -551,8 +546,6 @@ class CotizacionController {
       
       const usuarioId = req.user.id;
       const usuarioNombre = req.user.nombre_completo;
-      
-      console.log('🔍 Debug - Usuario ID:', usuarioId, 'Nombre:', usuarioNombre);
 
       const estadosValidos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'efectiva', 'rechazada'];
       
@@ -656,11 +649,7 @@ class CotizacionController {
           break;
       }
 
-      console.log('🔍 Debug - Update Data:', updateData);
-
       const result = await cotizacion.update(updateData);
-
-      console.log('🔍 Debug - Cotización actualizada:', result.toJSON());
 
       let mensaje = '';
       const estadoAnterior = cotizacion.estado;
@@ -714,7 +703,7 @@ class CotizacionController {
     }
   }
 
-  // 🔧 CORREGIDO: getCotizacionesPendientesAprobacion con nueva estructura
+  // getCotizacionesPendientesAprobacion con nueva estructura
   async getCotizacionesPendientesAprobacion(req, res) {
     try {
       const {
@@ -775,7 +764,7 @@ class CotizacionController {
                   }
                 ]
               },
-              // 🆕 NUEVO: Include directo de UnidadMedida
+              // Include directo de UnidadMedida
               {
                 model: UnidadMedida,
                 as: 'unidad_medida',
@@ -790,7 +779,7 @@ class CotizacionController {
         distinct: true
       });
 
-      // 🔧 FORMATEAR DATOS ACTUALIZADO con prioridad a relación directa
+      // Formatear datos actualizado con prioridad a relación directa
       const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
         const serviciosDetalles = cotizacion.detalles.map(detalle => ({
           id: detalle.servicios_id,
@@ -801,7 +790,7 @@ class CotizacionController {
           cantidadServicios: detalle.cantidad_servicios ||0,
           cantidadGB: detalle.cantidad_gb || 0,
           cantidadAnos: detalle.cantidad_anos || 1,
-          // 🔧 CORREGIDO: Usar relación directa primero, fallback a categoria
+          // Usar relación directa primero, fallback a categoria
           unidadMedida: detalle.unidad_medida ? {
             id: detalle.unidad_medida.unidades_medida_id,
             nombre: detalle.unidad_medida.nombre,
@@ -818,172 +807,172 @@ class CotizacionController {
           subtotal: parseFloat(detalle.subtotal),
           // Agregar precios de referencia para comparación
           precioMinimo: parseFloat(detalle.servicio.precio_minimo),
-          precioRecomendado: parseFloat(detalle.servicio.precio_recomendado)
-        }));
+         precioRecomendado: parseFloat(detalle.servicio.precio_recomendado)
+       }));
 
-        return {
-          id: cotizacion.cotizaciones_id,
-          cliente: {
-            nombre: cotizacion.cliente.nombre_empresa,
-            encargado: cotizacion.cliente.nombre_encargado,
-            email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado'
-          },
-          serviciosDetalles: serviciosDetalles,
-          fechaCreacion: cotizacion.fecha_creacion,
-          vendedor: {
-            nombre: cotizacion.vendedor.nombre_completo,
-            rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
-          },
-          estado: cotizacion.estado,
-          total: parseFloat(cotizacion.total),
-          comentario: cotizacion.comentario,
-          // Indicador de urgencia (días esperando aprobación)
-          diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24))
-        };
-      });
+       return {
+         id: cotizacion.cotizaciones_id,
+         cliente: {
+           nombre: cotizacion.cliente.nombre_empresa,
+           encargado: cotizacion.cliente.nombre_encargado,
+           email: cotizacion.cliente.correo_empresa || cotizacion.cliente.correo_personal || 'No especificado'
+         },
+         serviciosDetalles: serviciosDetalles,
+         fechaCreacion: cotizacion.fecha_creacion,
+         vendedor: {
+           nombre: cotizacion.vendedor.nombre_completo,
+           rol: CotizacionController.formatearRol(cotizacion.vendedor.tipo_usuario)
+         },
+         estado: cotizacion.estado,
+         total: parseFloat(cotizacion.total),
+         comentario: cotizacion.comentario,
+         // Indicador de urgencia (días esperando aprobación)
+         diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24))
+       };
+     });
 
-      const totalPages = Math.ceil(count / parseInt(limit));
-      const pagination = {
-        currentPage: parseInt(page),
-        totalPages: totalPages,
-        totalItems: count,
-        itemsPerPage: parseInt(limit),
-        hasNextPage: parseInt(page) < totalPages,
-        hasPrevPage: parseInt(page) > 1
-      };
+     const totalPages = Math.ceil(count / parseInt(limit));
+     const pagination = {
+       currentPage: parseInt(page),
+       totalPages: totalPages,
+       totalItems: count,
+       itemsPerPage: parseInt(limit),
+       hasNextPage: parseInt(page) < totalPages,
+       hasPrevPage: parseInt(page) > 1
+     };
 
-      res.json({
-        success: true,
-        cotizaciones: cotizacionesFormateadas,
-        pagination: pagination
-      });
+     res.json({
+       success: true,
+       cotizaciones: cotizacionesFormateadas,
+       pagination: pagination
+     });
 
-    } catch (error) {
-      console.error('Error al obtener cotizaciones pendientes:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  }
+   } catch (error) {
+     console.error('Error al obtener cotizaciones pendientes:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: error.message
+     });
+   }
+ }
 
-  // Estadísticas específicas para SuperUsuario
-  async getEstadisticasSuper(req, res) { 
-    try {
-      // Estadísticas generales
-      const estadisticasEstado = await Cotizacion.findAll({
-        attributes: [
-          'estado',
-          [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
-        ],
-        group: ['estado']
-      });
+ // Estadísticas específicas para SuperUsuario
+ async getEstadisticasSuper(req, res) { 
+   try {
+     // Estadísticas generales
+     const estadisticasEstado = await Cotizacion.findAll({
+       attributes: [
+         'estado',
+         [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
+       ],
+       group: ['estado']
+     });
 
-      // Cotizaciones pendientes de aprobación con urgencia
-      const pendientesAprobacion = await Cotizacion.findAll({
-        where: { estado: 'pendiente_aprobacion' },
-        attributes: [
-          'cotizaciones_id',
-          'fecha_creacion',
-          [Cotizacion.sequelize.literal('DATEDIFF(NOW(), fecha_creacion)'), 'dias_espera']
-        ],
-        order: [['fecha_creacion', 'ASC']]
-      });
+     // Cotizaciones pendientes de aprobación con urgencia
+     const pendientesAprobacion = await Cotizacion.findAll({
+       where: { estado: 'pendiente_aprobacion' },
+       attributes: [
+         'cotizaciones_id',
+         'fecha_creacion',
+         [Cotizacion.sequelize.literal('DATEDIFF(NOW(), fecha_creacion)'), 'dias_espera']
+       ],
+       order: [['fecha_creacion', 'ASC']]
+     });
 
-      // Formatear estadísticas
-      const stats = {
-        total: 0,
-        pendientesAprobacion: 0,
-        pendientes: 0,
-        aprobadas: 0,
-        rechazadas: 0,
-        urgentes: 0 // Más de 3 días esperando aprobación
-      };
+     // Formatear estadísticas
+     const stats = {
+       total: 0,
+       pendientesAprobacion: 0,
+       pendientes: 0,
+       aprobadas: 0,
+       rechazadas: 0,
+       urgentes: 0 // Más de 3 días esperando aprobación
+     };
 
-      estadisticasEstado.forEach(stat => {
-        const cantidad = parseInt(stat.dataValues.cantidad);
-        stats.total += cantidad;
+     estadisticasEstado.forEach(stat => {
+       const cantidad = parseInt(stat.dataValues.cantidad);
+       stats.total += cantidad;
 
-        switch (stat.estado) {
-          case 'pendiente_aprobacion':
-            stats.pendientesAprobacion = cantidad;
-            break;
-          case 'pendiente':
-            stats.pendientes = cantidad;
-            break;
-          case 'efectiva':
-            stats.aprobadas = cantidad;
-            break;
-          case 'rechazada':
-            stats.rechazadas = cantidad;
-            break;
-        }
-      });
+       switch (stat.estado) {
+         case 'pendiente_aprobacion':
+           stats.pendientesAprobacion = cantidad;
+           break;
+         case 'pendiente':
+           stats.pendientes = cantidad;
+           break;
+         case 'efectiva':
+           stats.aprobadas = cantidad;
+           break;
+         case 'rechazada':
+           stats.rechazadas = cantidad;
+           break;
+       }
+     });
 
-      // Contar urgentes (más de 3 días)
-      stats.urgentes = pendientesAprobacion.filter(p => p.dataValues.dias_espera > 3).length;
+     // Contar urgentes (más de 3 días)
+     stats.urgentes = pendientesAprobacion.filter(p => p.dataValues.dias_espera > 3).length;
 
-      res.json({
-        success: true,
-        estadisticas: stats,
-        pendientesDetalle: pendientesAprobacion.map(p => ({
-          id: p.cotizaciones_id,
-          diasEspera: p.dataValues.dias_espera
-        }))
-      });
+     res.json({
+       success: true,
+       estadisticas: stats,
+       pendientesDetalle: pendientesAprobacion.map(p => ({
+         id: p.cotizaciones_id,
+         diasEspera: p.dataValues.dias_espera
+       }))
+     });
 
-    } catch (error) {
-      console.error('Error al obtener estadísticas super:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  }
+   } catch (error) {
+     console.error('Error al obtener estadísticas super:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: error.message
+     });
+   }
+ }
 
-  // Obtener lista de vendedores únicos
-  async getVendedores(req, res) {
-    try {
-      const vendedores = await Usuario.findAll({
-        attributes: ['nombre_completo'],
-        include: [{
-          model: Cotizacion,
-          as: 'cotizaciones',
-          required: true,
-          attributes: []
-        }],
-        group: ['usuarios_id', 'nombre_completo'],
-        order: [['nombre_completo', 'ASC']]
-      });
+ // Obtener lista de vendedores únicos
+ async getVendedores(req, res) {
+   try {
+     const vendedores = await Usuario.findAll({
+       attributes: ['nombre_completo'],
+       include: [{
+         model: Cotizacion,
+         as: 'cotizaciones',
+         required: true,
+         attributes: []
+       }],
+       group: ['usuarios_id', 'nombre_completo'],
+       order: [['nombre_completo', 'ASC']]
+     });
 
-      const vendedoresUnicos = vendedores.map(v => v.nombre_completo);
+     const vendedoresUnicos = vendedores.map(v => v.nombre_completo);
 
-      res.json({
-        success: true,
-        vendedores: vendedoresUnicos
-      });
+     res.json({
+       success: true,
+       vendedores: vendedoresUnicos
+     });
 
-    } catch (error) {
-      console.error('Error al obtener vendedores:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  }
+   } catch (error) {
+     console.error('Error al obtener vendedores:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: error.message
+     });
+   }
+ }
 
-  // Método helper para formatear rol
-  static formatearRol(tipoUsuario) {
-    const roles = {
-      'admin': 'Administrador',
-      'vendedor': 'Vendedor',
-      'super_usuario': 'Supervisor'
-    };
-    return roles[tipoUsuario] || tipoUsuario;
-  }
+ // Método helper para formatear rol
+ static formatearRol(tipoUsuario) {
+   const roles = {
+     'admin': 'Administrador',
+     'vendedor': 'Vendedor',
+     'super_usuario': 'Supervisor'
+   };
+   return roles[tipoUsuario] || tipoUsuario;
+ }
 }
 
 module.exports = CotizacionController;

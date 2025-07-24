@@ -224,17 +224,6 @@ class ServicioService {
          message: 'El precio recomendado no puede ser menor al precio mínimo'
        };
      }
-     
-     // 🔧 ACTUALIZADO: CREAR SERVICIO con múltiples categorías y límites
-     console.log('📝 Creando servicio con datos:', {
-       nombre: otrosDatos.nombre.trim(),
-       categorias_id: categoriaPrincipal,
-       categorias_ids: JSON.stringify(categoriasArray),
-       limite_minimo: parseFloat(limite_minimo || 1.00),
-       limite_maximo: limite_maximo ? parseFloat(limite_maximo) : null,
-       categoriasArray: categoriasArray
-     });
-     
      const nuevoServicio = await Servicio.create({
        nombre: otrosDatos.nombre.trim(),
        descripcion: otrosDatos.descripcion?.trim() || null,
@@ -245,15 +234,6 @@ class ServicioService {
        limite_minimo: parseFloat(limite_minimo || 1.00), // 🆕 NUEVO
        limite_maximo: limite_maximo ? parseFloat(limite_maximo) : null, // 🆕 NUEVO
        estado: 'activo'
-     });
-     
-     console.log('✅ Servicio creado en BD:', {
-       id: nuevoServicio.servicios_id,
-       nombre: nuevoServicio.nombre,
-       categorias_id: nuevoServicio.categorias_id,
-       categorias_ids: nuevoServicio.categorias_ids,
-       limite_minimo: nuevoServicio.limite_minimo,
-       limite_maximo: nuevoServicio.limite_maximo
      });
      
      // Obtener el servicio con la categoría incluida
@@ -527,7 +507,7 @@ class ServicioService {
  // Obtener estadísticas de servicios
  async getEstadisticas() {
    try {
-     console.log('📊 Iniciando cálculo de estadísticas de servicios...');
+     
      
      // Estadísticas básicas
      const [total, activos, inactivos] = await Promise.all([
@@ -536,7 +516,7 @@ class ServicioService {
        Servicio.count({ where: { estado: 'inactivo' } })
      ]);
      
-     console.log(`📊 Conteos básicos - Total: ${total}, Activos: ${activos}, Inactivos: ${inactivos}`);
+     
      
      // Servicios por rango de precio
      const [barato, medio, caro] = await Promise.all([
@@ -646,7 +626,7 @@ class ServicioService {
        }
      };
      
-     console.log('✅ Estadísticas de servicios calculadas exitosamente:', estadisticas);
+    
      
      return {
        success: true,
@@ -1013,7 +993,7 @@ class ServicioService {
  // 🆕 NUEVO: Método para migrar servicios existentes a múltiples categorías
  async migrateToMultipleCategories() {
    try {
-     console.log('🔄 Iniciando migración a múltiples categorías...');
+     
      
      const serviciosSinCategorias = await Servicio.findAll({
        where: {
@@ -1022,7 +1002,7 @@ class ServicioService {
        }
      });
      
-     console.log(`📋 Encontrados ${serviciosSinCategorias.length} servicios para migrar`);
+    
      
      for (const servicio of serviciosSinCategorias) {
        await servicio.update({
@@ -1030,7 +1010,7 @@ class ServicioService {
       });
     }
     
-    console.log('✅ Migración completada exitosamente');
+    
     
     return {
       success: true,
@@ -1056,10 +1036,6 @@ async getServiciosWithExpandedCategories(filters = {}) {
    // Expandir categorías para cada servicio
    const serviciosExpandidos = await Promise.all(
      result.servicios.map(async (servicio) => {
-       console.log(`🔍 Expandiendo categorías para servicio ${servicio.servicios_id}:`, {
-         categorias_id: servicio.categorias_id,
-         categorias_ids: servicio.categorias_ids
-       });
        
        const categoriesResult = await this.getCategoriesForServicio(servicio.servicios_id);
        
@@ -1288,7 +1264,6 @@ async getRelatedServicios(servicioId, limit = 5) {
 // 🆕 NUEVO: Método para validar integridad de datos
 async validateDataIntegrity() {
   try {
-    console.log('🔍 Iniciando validación de integridad de datos...');
     
     const issues = [];
     
@@ -1387,7 +1362,6 @@ async validateDataIntegrity() {
       }
     }
     
-    console.log(`✅ Validación completada. Encontrados ${issues.length} problemas`);
     
     return {
       success: true,
