@@ -151,7 +151,7 @@ class CotizacionController {
         distinct: true
       });
 
-      // Formateo actualizado con prioridad a relación directa
+      // 🔧 FORMATEO CORREGIDO CON CAMPOS DE DESCUENTO
       const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
         const serviciosNombres = cotizacion.detalles.map(detalle => detalle.servicio.nombre);
         
@@ -197,7 +197,16 @@ class CotizacionController {
           estado: cotizacion.estado,
           total: parseFloat(cotizacion.total),
           pdfGenerado: cotizacion.pdf_generado,
-          comentario: cotizacion.comentario
+          comentario: cotizacion.comentario,
+          
+          // 🔧 CAMPOS DE DESCUENTO AGREGADOS:
+          tiene_descuento: cotizacion.tiene_descuento || false,
+          descuento_porcentaje: parseFloat(cotizacion.descuento_porcentaje) || 0,
+          total_original: cotizacion.total_original ? parseFloat(cotizacion.total_original) : null,
+          comentario_descuento: cotizacion.comentario_descuento || null,
+          descuento_otorgado_por: cotizacion.descuento_otorgado_por || null,
+          descuento_otorgado_por_nombre: cotizacion.descuento_otorgado_por_nombre || null,
+          fecha_descuento: cotizacion.fecha_descuento || null
         };
       });
 
@@ -366,7 +375,7 @@ class CotizacionController {
         });
       }
 
-      // Formatear datos actualizado con prioridad a relación directa
+      // 🔧 FORMATEAR DATOS CORREGIDO CON CAMPOS DE DESCUENTO
       const cotizacionFormateada = {
         id: cotizacion.cotizaciones_id,
         cliente: {
@@ -418,6 +427,16 @@ class CotizacionController {
           incluirCorreoEmpresa: cotizacion.incluir_correo_empresa,
           tipoPrecioPDF: cotizacion.tipo_precio_pdf
         },
+        
+        // 🔧 CAMPOS DE DESCUENTO AGREGADOS:
+        tiene_descuento: cotizacion.tiene_descuento || false,
+        descuento_porcentaje: parseFloat(cotizacion.descuento_porcentaje) || 0,
+        total_original: cotizacion.total_original ? parseFloat(cotizacion.total_original) : null,
+        comentario_descuento: cotizacion.comentario_descuento || null,
+        descuento_otorgado_por: cotizacion.descuento_otorgado_por || null,
+        descuento_otorgado_por_nombre: cotizacion.descuento_otorgado_por_nombre || null,
+        fecha_descuento: cotizacion.fecha_descuento || null,
+        
         // Información de auditoría
         auditoria: {
           aprobadoPor: usuarioAprobador ? {
@@ -783,30 +802,30 @@ class CotizacionController {
       const cotizacionesFormateadas = cotizaciones.map(cotizacion => {
         const serviciosDetalles = cotizacion.detalles.map(detalle => ({
           id: detalle.servicios_id,
-          nombre: detalle.servicio.nombre,
-          descripcion: detalle.servicio.descripcion,
-          categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
-          cantidadEquipos: detalle.cantidad_equipos || 0,
-          cantidadServicios: detalle.cantidad_servicios ||0,
-          cantidadGB: detalle.cantidad_gb || 0,
-          cantidadAnos: detalle.cantidad_anos || 1,
-          // Usar relación directa primero, fallback a categoria
-          unidadMedida: detalle.unidad_medida ? {
-            id: detalle.unidad_medida.unidades_medida_id,
-            nombre: detalle.unidad_medida.nombre,
-            abreviacion: detalle.unidad_medida.abreviacion,
-            tipo: detalle.unidad_medida.tipo
-          } : (detalle.servicio.categoria?.unidad_medida ? {
-            id: detalle.servicio.categoria.unidad_medida.unidades_medida_id,
-            nombre: detalle.servicio.categoria.unidad_medida.nombre,
-            abreviacion: detalle.servicio.categoria.unidad_medida.abreviacion,
-            tipo: detalle.servicio.categoria.unidad_medida.tipo
-          } : null),
-          cantidad: detalle.cantidad || 1,
-          precioUsado: parseFloat(detalle.precio_usado),
-          subtotal: parseFloat(detalle.subtotal),
-          // Agregar precios de referencia para comparación
-          precioMinimo: parseFloat(detalle.servicio.precio_minimo),
+         nombre: detalle.servicio.nombre,
+         descripcion: detalle.servicio.descripcion,
+         categoria: detalle.servicio.categoria?.nombre || 'Sin categoría',
+         cantidadEquipos: detalle.cantidad_equipos || 0,
+         cantidadServicios: detalle.cantidad_servicios || 0,
+         cantidadGB: detalle.cantidad_gb || 0,
+         cantidadAnos: detalle.cantidad_anos || 1,
+         // Usar relación directa primero, fallback a categoria
+         unidadMedida: detalle.unidad_medida ? {
+           id: detalle.unidad_medida.unidades_medida_id,
+           nombre: detalle.unidad_medida.nombre,
+           abreviacion: detalle.unidad_medida.abreviacion,
+           tipo: detalle.unidad_medida.tipo
+         } : (detalle.servicio.categoria?.unidad_medida ? {
+           id: detalle.servicio.categoria.unidad_medida.unidades_medida_id,
+           nombre: detalle.servicio.categoria.unidad_medida.nombre,
+           abreviacion: detalle.servicio.categoria.unidad_medida.abreviacion,
+           tipo: detalle.servicio.categoria.unidad_medida.tipo
+         } : null),
+         cantidad: detalle.cantidad || 1,
+         precioUsado: parseFloat(detalle.precio_usado),
+         subtotal: parseFloat(detalle.subtotal),
+         // Agregar precios de referencia para comparación
+         precioMinimo: parseFloat(detalle.servicio.precio_minimo),
          precioRecomendado: parseFloat(detalle.servicio.precio_recomendado)
        }));
 
@@ -827,7 +846,16 @@ class CotizacionController {
          total: parseFloat(cotizacion.total),
          comentario: cotizacion.comentario,
          // Indicador de urgencia (días esperando aprobación)
-         diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24))
+         diasEspera: Math.floor((new Date() - new Date(cotizacion.fecha_creacion)) / (1000 * 60 * 60 * 24)),
+         
+         // 🔧 CAMPOS DE DESCUENTO AGREGADOS:
+         tiene_descuento: cotizacion.tiene_descuento || false,
+         descuento_porcentaje: parseFloat(cotizacion.descuento_porcentaje) || 0,
+         total_original: cotizacion.total_original ? parseFloat(cotizacion.total_original) : null,
+         comentario_descuento: cotizacion.comentario_descuento || null,
+         descuento_otorgado_por: cotizacion.descuento_otorgado_por || null,
+         descuento_otorgado_por_nombre: cotizacion.descuento_otorgado_por_nombre || null,
+         fecha_descuento: cotizacion.fecha_descuento || null
        };
      });
 
@@ -973,6 +1001,201 @@ class CotizacionController {
    };
    return roles[tipoUsuario] || tipoUsuario;
  }
+
+ // Aplicar descuento a cotización (solo SuperUsuario)
+ async aplicarDescuento(req, res) {
+   try {
+     const { id } = req.params;
+     const { descuento_porcentaje, comentario_descuento } = req.body;
+     
+     const usuarioId = req.user.id;
+     const usuarioNombre = req.user.nombre_completo;
+     const usuarioRol = req.user.tipo_usuario;
+
+     // Validar que solo SuperUsuario pueda aplicar descuentos
+     if (usuarioRol !== 'super_usuario' && usuarioRol !== 'admin') {
+       return res.status(403).json({
+         success: false,
+         message: 'No tienes permisos para aplicar descuentos'
+       });
+     }
+
+     // Validar porcentaje de descuento
+     if (!descuento_porcentaje || descuento_porcentaje <= 0 || descuento_porcentaje > 100) {
+       return res.status(400).json({
+         success: false,
+         message: 'El porcentaje de descuento debe estar entre 0.01% y 100%'
+       });
+     }
+
+     // Validar comentario
+     if (!comentario_descuento || comentario_descuento.trim().length === 0) {
+       return res.status(400).json({
+         success: false,
+         message: 'El comentario del descuento es obligatorio'
+       });
+     }
+
+     const cotizacion = await Cotizacion.findByPk(id);
+     if (!cotizacion) {
+       return res.status(404).json({
+         success: false,
+         message: 'Cotización no encontrada'
+       });
+     }
+
+     // Validar que la cotización esté en estado pendiente
+     if (cotizacion.estado !== 'pendiente') {
+       return res.status(400).json({
+         success: false,
+         message: 'Solo se puede aplicar descuento a cotizaciones en estado pendiente'
+       });
+     }
+
+     // Determinar el total original
+     let totalOriginal;
+     if (cotizacion.tiene_descuento && cotizacion.total_original) {
+       // Si ya tiene descuento, usar el total original guardado
+       totalOriginal = parseFloat(cotizacion.total_original);
+     } else {
+       // Si es la primera vez, el total actual es el original
+       totalOriginal = parseFloat(cotizacion.total);
+     }
+
+     // Calcular nuevo total con descuento
+     const descuentoDecimal = parseFloat(descuento_porcentaje) / 100;
+     const montoDescuento = totalOriginal * descuentoDecimal;
+     const totalConDescuento = totalOriginal - montoDescuento;
+
+     // Preparar datos de actualización (SIN tocar pdf_generado)
+     const updateData = {
+       descuento_porcentaje: parseFloat(descuento_porcentaje),
+       total_original: totalOriginal,
+       total: totalConDescuento,
+       comentario_descuento: comentario_descuento.trim(),
+       descuento_otorgado_por: usuarioId,
+       descuento_otorgado_por_nombre: usuarioNombre,
+       fecha_descuento: new Date(),
+       tiene_descuento: true
+       // ✅ NO modificamos pdf_generado aquí - se mantiene como está
+     };
+
+     // Actualizar cotización
+     await cotizacion.update(updateData);
+
+     console.log(`💰 Descuento aplicado: ${descuento_porcentaje}% a cotización ${id} por ${usuarioNombre}`);
+
+     // 🆕 GENERAR PDF AUTOMÁTICAMENTE DESPUÉS DEL DESCUENTO
+     let pdfGeneradoExitosamente = false;
+     try {
+       console.log(`📄 Iniciando generación automática de PDF para cotización ${id}...`);
+       
+       // Obtener cotización completa con todas las relaciones necesarias para el PDF
+       const cotizacionCompleta = await Cotizacion.findByPk(id, {
+         include: [
+           {
+             model: Cliente,
+             as: 'cliente'
+           },
+           {
+             model: Usuario,
+             as: 'vendedor'
+           },
+           {
+             model: CotizacionDetalle,
+             as: 'detalles',
+             include: [
+               {
+                 model: Servicio,
+                 as: 'servicio',
+                 include: [
+                   {
+                     model: Categoria,
+                     as: 'categoria',
+                     include: [
+                       {
+                         model: UnidadMedida,
+                         as: 'unidad_medida',
+                         attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+                       }
+                     ]
+                   }
+                 ]
+               },
+               {
+                 model: UnidadMedida,
+                 as: 'unidad_medida',
+                 attributes: ['unidades_medida_id', 'nombre', 'abreviacion', 'tipo']
+               }
+             ]
+           }
+         ]
+       });
+
+       if (!cotizacionCompleta) {
+         throw new Error('No se pudo obtener la cotización completa para generar PDF');
+       }
+
+       // Importar PDFGenerator
+       const PDFGenerator = require('../utils/pdfGenerator');
+       
+       // Generar PDF con descuento aplicado (tipo 'original' por defecto)
+       const pdfBuffer = await PDFGenerator.generarCotizacionPDF(cotizacionCompleta, 'original');
+       
+       if (pdfBuffer && pdfBuffer.length > 0) {
+         // ✅ SIEMPRE mantener pdf_generado en true después de aplicar descuento
+         await cotizacion.update({ pdf_generado: true });
+         pdfGeneradoExitosamente = true;
+         
+         console.log(`✅ PDF regenerado automáticamente para cotización ${id} con descuento del ${descuento_porcentaje}%`);
+       } else {
+         throw new Error('PDF generado está vacío');
+       }
+       
+     } catch (pdfError) {
+       console.error(`⚠️ Error generando PDF automático para cotización ${id}:`, pdfError.message);
+       
+       // ✅ Incluso si falla la generación, mantener pdf_generado en true
+       // para que el usuario pueda intentar descargar manualmente
+       await cotizacion.update({ pdf_generado: true });
+       pdfGeneradoExitosamente = false;
+       
+       // No fallar la operación completa si el PDF falla
+       // El descuento ya se aplicó exitosamente
+     }
+
+     // Respuesta exitosa
+     const mensaje = pdfGeneradoExitosamente 
+       ? `Descuento del ${descuento_porcentaje}% aplicado exitosamente. PDF actualizado automáticamente.`
+       : `Descuento del ${descuento_porcentaje}% aplicado exitosamente. PDF disponible para descarga manual.`;
+
+     res.json({
+       success: true,
+       message: mensaje,
+       cotizacion: {
+         id: cotizacion.cotizaciones_id,
+         totalOriginal: totalOriginal,
+         descuentoPorcentaje: parseFloat(descuento_porcentaje),
+         montoDescuento: montoDescuento,
+         totalConDescuento: totalConDescuento,
+         comentarioDescuento: comentario_descuento.trim(),
+         fechaDescuento: new Date(),
+         otorgadoPor: usuarioNombre,
+         pdfGenerado: true, // ✅ Siempre true después de aplicar descuento
+         pdfGeneradoAutomaticamente: pdfGeneradoExitosamente
+       }
+     });
+
+   } catch (error) {
+     console.error('❌ Error aplicando descuento:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error interno del servidor',
+       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+     });
+   }
+ }
+
 }
 
 module.exports = CotizacionController;

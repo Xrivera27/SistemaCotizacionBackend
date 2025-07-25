@@ -52,6 +52,9 @@ router.patch('/:id/aprobar', requireAdminOrSuper, (req, res) => {
   cotizacionController.cambiarEstado(req, res);
 });
 
+// Aplicar descuento a cotización (SuperUsuario)
+router.patch('/:id/aplicar-descuento', requireAdminOrSuper, cotizacionController.aplicarDescuento.bind(cotizacionController));
+
 // 🔧 CORREGIDO: Rechazar cotización - ADMINS Y SUPER_USUARIOS
 router.patch('/:id/rechazar', requireAdminOrSuper, (req, res) => {
   req.body.estado = 'rechazado';

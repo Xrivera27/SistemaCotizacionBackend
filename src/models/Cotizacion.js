@@ -99,7 +99,43 @@ const Cotizacion = sequelize.define('Cotizacion', {
 rechazado_por_nombre: {
   type: DataTypes.STRING(255),
   allowNull: true
-}
+},
+// Añadir estos campos al modelo Cotizacion después de rechazado_por_nombre:
+
+  // 🆕 CAMPOS DE DESCUENTO
+  descuento_porcentaje: {
+    type: DataTypes.DECIMAL(5, 2),
+    defaultValue: 0.00
+  },
+  total_original: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  comentario_descuento: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  descuento_otorgado_por: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'usuarios',
+      key: 'usuarios_id'
+    }
+  },
+  descuento_otorgado_por_nombre: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  fecha_descuento: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  tiene_descuento: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  }
+  
 }, {
   tableName: 'cotizaciones',
   timestamps: true,
