@@ -1,3 +1,5 @@
+//controller/VendedorCotizacionController.js
+
 const { Cotizacion, CotizacionDetalle, Cliente, Usuario, Servicio, Categoria, UnidadMedida } = require('../models');
 const { Op } = require('sequelize');
 const PDFGenerator = require('../utils/pdfGenerator'); // ✅ IMPORTAR EL GENERADOR
@@ -221,74 +223,72 @@ class VendedorCotizacionController {
     }
   }
 
-  // Obtener estadísticas del vendedor
-  async getMisEstadisticas(req, res) {
-    try {
+ // Obtener estadísticas del vendedor
+async getMisEstadisticas(req, res) {
+  try {
+    // ✅ CORRECCIÓN: Agregar la línea que faltaba
+    const usuarioId = req.user?.id;
 
-      if (!usuarioId) {
-        return res.status(400).json({
-          success: false,
-          message: 'No se pudo obtener el ID del usuario del token'
-        });
-      }
-
-      // Contar por estado
-      const estadisticasEstado = await Cotizacion.findAll({
-        where: { usuarios_id: usuarioId },
-        attributes: [
-          'estado',
-          [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
-        ],
-        group: ['estado']
-      });
-
-     
-
-      // Formatear estadísticas
-      const stats = {
-        total: 0,
-        esperandoAprobacion: 0,
-        pendientes: 0,
-        efectivas: 0,
-        rechazadas: 0
-      };
-
-      estadisticasEstado.forEach(stat => {
-        const cantidad = parseInt(stat.dataValues.cantidad);
-        stats.total += cantidad;
-
-        switch (stat.estado) {
-          case 'pendiente_aprobacion':
-            stats.esperandoAprobacion = cantidad;
-            break;
-          case 'pendiente':
-            stats.pendientes = cantidad;
-            break;
-          case 'efectiva':
-            stats.efectivas = cantidad;
-            break;
-          case 'rechazada':
-            stats.rechazadas = cantidad;
-            break;
-        }
-      });
-
-      
-
-      res.json({
-        success: true,
-        estadisticas: stats
-      });
-
-    } catch (error) {
-      console.error('Error al obtener estadísticas del vendedor:', error);
-      res.status(500).json({
+    if (!usuarioId) {
+      return res.status(400).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'No se pudo obtener el ID del usuario del token'
       });
     }
+
+    // Contar por estado
+    const estadisticasEstado = await Cotizacion.findAll({
+      where: { usuarios_id: usuarioId },
+      attributes: [
+        'estado',
+        [Cotizacion.sequelize.fn('COUNT', Cotizacion.sequelize.col('estado')), 'cantidad']
+      ],
+      group: ['estado']
+    });
+
+    // Formatear estadísticas
+    const stats = {
+      total: 0,
+      esperandoAprobacion: 0,
+      pendientes: 0,
+      efectivas: 0,
+      rechazadas: 0
+    };
+
+    estadisticasEstado.forEach(stat => {
+      const cantidad = parseInt(stat.dataValues.cantidad);
+      stats.total += cantidad;
+
+      switch (stat.estado) {
+        case 'pendiente_aprobacion':
+          stats.esperandoAprobacion = cantidad;
+          break;
+        case 'pendiente':
+          stats.pendientes = cantidad;
+          break;
+        case 'efectiva':
+          stats.efectivas = cantidad;
+          break;
+        case 'rechazada':
+          stats.rechazadas = cantidad;
+          break;
+      }
+    });
+
+    res.json({
+      success: true,
+      estadisticas: stats
+    });
+
+  } catch (error) {
+    console.error('Error al obtener estadísticas del vendedor:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
+}
 
   // ✅ ACTUALIZADO: Obtener una cotización específica con UnidadMedida
   async getMiCotizacionById(req, res) {
@@ -560,7 +560,7 @@ class VendedorCotizacionController {
     }
   }
 
-// ✅ ACTUALIZADO: Duplicar cotización con mapeo correcto de cantidad
+// ✅ ACTUALIZADO: Duplicar cotización con mapeo correcto de cantidad SIN TOCAR PRECIOS
 async duplicarCotizacion(req, res) {
   try {
     const { id } = req.params;
@@ -625,6 +625,7 @@ async duplicarCotizacion(req, res) {
       });
     }
 
+
     // Formatear datos para la página de crear cotización
     const datosParaDuplicar = {
       // Información del cliente
@@ -637,9 +638,15 @@ async duplicarCotizacion(req, res) {
         documentoFiscal: cotizacionOriginal.cliente.documento_fiscal
       },
       
-      // ✅ SERVICIOS CON MAPEO CORRECTO DE CATEGORÍAS
+      // ✅ SERVICIOS SIN TOCAR LOS PRECIOS - USAR TAL COMO ESTÁN
       servicios: cotizacionOriginal.detalles.map(detalle => {
-
+        
+        
+        // ✅ CORRECCIÓN: USAR EL PRECIO TAL COMO ESTÁ SIN MODIFICAR
+        const precioUsado = parseFloat(detalle.precio_usado);
+        
+        
+        
         return {
           id: detalle.servicios_id,
           nombre: detalle.servicio.nombre,
@@ -648,11 +655,11 @@ async duplicarCotizacion(req, res) {
           
           // ✅ MAPEO CORREGIDO: Usar los campos correctos según tu nueva estructura
           categoriaId: detalle.categorias_id, // ✅ ID de la categoría
-          cantidadPorCategoria: detalle.cantidad || 0, // ✅ CANTIDAD REAL por categoría (no el ID)
+          cantidadPorCategoria: detalle.cantidad || 0, // ✅ CAMBIO: Usar nombre consistente
           
           // ✅ DATOS LEGACY (mantener para compatibilidad)
           cantidadEquipos: detalle.cantidad_equipos || 0,
-          cantidadServicios: detalle.cantidad_servicios || 0,
+          cantidadServicios: detalle.cantidad_servicios || detalle.cantidad || 0, // ✅ Fallback a cantidad
           cantidadGB: detalle.cantidad_gb || 0,
           cantidadAnos: detalle.cantidad_anos || 1,
           
@@ -669,10 +676,10 @@ async duplicarCotizacion(req, res) {
             tipo: detalle.servicio.categoria.unidad_medida.tipo
           } : null),
           
-          // ✅ PRECIOS DIRECTOS (tal como están en la base de datos)
+          // ✅ PRECIOS TAL COMO ESTÁN - SIN MODIFICAR NADA
           precioMinimo: parseFloat(detalle.servicio.precio_minimo),
           precioRecomendado: parseFloat(detalle.servicio.precio_recomendado),
-          precioUsadoOriginal: parseFloat(detalle.precio_usado),
+          precioUsadoOriginal: precioUsado, // ✅ USAR EL PRECIO TAL COMO ESTÁ
           subtotalOriginal: parseFloat(detalle.subtotal)
         };
       }),
@@ -695,10 +702,7 @@ async duplicarCotizacion(req, res) {
         comentario: cotizacionOriginal.comentario
       }
     };
-
-   
     
-   
     res.json({
       success: true,
       message: 'Datos de cotización obtenidos para duplicar',
