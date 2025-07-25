@@ -1083,12 +1083,10 @@ class CotizacionController {
      // Actualizar cotización
      await cotizacion.update(updateData);
 
-     console.log(`💰 Descuento aplicado: ${descuento_porcentaje}% a cotización ${id} por ${usuarioNombre}`);
 
      // 🆕 GENERAR PDF AUTOMÁTICAMENTE DESPUÉS DEL DESCUENTO
      let pdfGeneradoExitosamente = false;
      try {
-       console.log(`📄 Iniciando generación automática de PDF para cotización ${id}...`);
        
        // Obtener cotización completa con todas las relaciones necesarias para el PDF
        const cotizacionCompleta = await Cotizacion.findByPk(id, {
@@ -1147,7 +1145,6 @@ class CotizacionController {
          await cotizacion.update({ pdf_generado: true });
          pdfGeneradoExitosamente = true;
          
-         console.log(`✅ PDF regenerado automáticamente para cotización ${id} con descuento del ${descuento_porcentaje}%`);
        } else {
          throw new Error('PDF generado está vacío');
        }
