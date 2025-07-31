@@ -43,22 +43,28 @@ router.get('/:id/pdf', requireAdminOrSuper, cotizacionController.generarPDF.bind
 // RUTAS DE GESTIÓN (admins Y super_usuarios)
 // =====================================================
 
-// 🔧 CORREGIDO: Cambiar estado de cotización - ADMINS Y SUPER_USUARIOS
+// Cambiar estado de cotización - ADMINS Y SUPER_USUARIOS
 router.patch('/:id/estado', requireAdminOrSuper, cotizacionController.cambiarEstado.bind(cotizacionController));
 
-// 🔧 CORREGIDO: Aprobar cotización - ADMINS Y SUPER_USUARIOS
+// Aprobar cotización - ADMINS Y SUPER_USUARIOS
 router.patch('/:id/aprobar', requireAdminOrSuper, (req, res) => {
   req.body.estado = 'aprobado';
   cotizacionController.cambiarEstado(req, res);
 });
 
-// Aplicar descuento a cotización (SuperUsuario)
-router.patch('/:id/aplicar-descuento', requireAdminOrSuper, cotizacionController.aplicarDescuento.bind(cotizacionController));
-
-// 🔧 CORREGIDO: Rechazar cotización - ADMINS Y SUPER_USUARIOS
+// Rechazar cotización - ADMINS Y SUPER_USUARIOS
 router.patch('/:id/rechazar', requireAdminOrSuper, (req, res) => {
   req.body.estado = 'rechazado';
   cotizacionController.cambiarEstado(req, res);
 });
+
+// Aplicar descuento a cotización (SuperUsuario/Admin)
+router.patch('/:id/aplicar-descuento', requireAdminOrSuper, cotizacionController.aplicarDescuento.bind(cotizacionController));
+
+// 🆕 NUEVA RUTA: Aplicar meses gratis a cotización (SuperUsuario/Admin)
+router.patch('/:id/aplicar-meses-gratis', requireAdminOrSuper, cotizacionController.aplicarMesesGratis.bind(cotizacionController));
+
+// 🆕 NUEVA RUTA: Actualizar observaciones de cotización
+router.patch('/:id/observaciones', requireAdminOrSuper, cotizacionController.actualizarObservaciones.bind(cotizacionController));
 
 module.exports = router;

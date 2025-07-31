@@ -93,15 +93,14 @@ const Cotizacion = sequelize.define('Cotizacion', {
     allowNull: true
   },
   aprobado_por_nombre: {
-  type: DataTypes.STRING(255),
-  allowNull: true
-},
-rechazado_por_nombre: {
-  type: DataTypes.STRING(255),
-  allowNull: true
-},
-// Añadir estos campos al modelo Cotizacion después de rechazado_por_nombre:
-
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  rechazado_por_nombre: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  
   // 🆕 CAMPOS DE DESCUENTO
   descuento_porcentaje: {
     type: DataTypes.DECIMAL(5, 2),
@@ -134,6 +133,38 @@ rechazado_por_nombre: {
   tiene_descuento: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+
+  // 🆕 CAMPOS DE MESES GRATIS
+  meses_gratis: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  meses_gratis_otorgado_por: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'usuarios',
+      key: 'usuarios_id'
+    }
+  },
+  meses_gratis_otorgado_por_nombre: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  fecha_meses_gratis: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  tiene_meses_gratis: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+
+  // 🆕 OBSERVACIONES
+  observaciones: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
   
 }, {

@@ -1026,10 +1026,10 @@ createCotizacionVendedor: Joi.object({
           }),
 
         // ✅ CAMPO OPCIONAL: añosContrato
-        añosContrato: Joi.number()
+        mesesContrato : Joi.number()
           .integer()
           .min(1)
-          .max(10)
+          .max(99)
           .optional()
           .messages({
             'number.base': 'Los años de contrato deben ser un número',
@@ -1046,10 +1046,10 @@ createCotizacionVendedor: Joi.object({
       'any.required': 'Los servicios son requeridos'
     }),
  
-  añosContrato: Joi.number()
+  mesesContrato : Joi.number()
     .integer()
     .min(1)
-    .max(10)
+    .max(99)
     .required()
     .messages({
       'number.base': 'Los años de contrato deben ser un número',

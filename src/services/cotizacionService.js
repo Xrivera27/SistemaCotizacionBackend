@@ -1,4 +1,4 @@
-// services/cotizacionService.js - COMPLETO CORREGIDO
+// services/cotizacionService.js - COMPLETO CORREGIDO PARA MESES
 const { Cotizacion, CotizacionDetalle, Cliente, Servicio, Usuario, Categoria, UnidadMedida } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
@@ -9,7 +9,8 @@ async createCotizacion(data) {
  const transaction = await sequelize.transaction();
  
  try {
-   const { cliente, servicios, añosContrato, precioTotal, tipoPrecio, configuracionPDF, comentario, usuarios_id } = data;
+   // CAMBIO: usar mesesContrato en lugar de añosContrato
+   const { cliente, servicios, mesesContrato, precioTotal, tipoPrecio, configuracionPDF, comentario, usuarios_id } = data;
    
    // 1. Crear o actualizar cliente (MANTENER IGUAL)
    let clienteRecord;
@@ -54,7 +55,7 @@ async createCotizacion(data) {
      }, { transaction });
    }
    
-   // 2. Procesar servicios por categorías individuales
+   // 2. Procesar servicios por categorías individuales - SIN CAMBIOS HASTA EL CÁLCULO
    const detallesParaCrear = [];
    let requiereAprobacion = false;
    
@@ -114,14 +115,15 @@ async createCotizacion(data) {
              continue; // Saltar esta categoría
            }
            
-           const subtotal = categoriaDetalle.cantidad * servicioItem.precioVentaFinal * añosContrato;
+           // CAMBIO: calcular subtotal usando meses en lugar de años
+           const subtotal = categoriaDetalle.cantidad * servicioItem.precioVentaFinal * mesesContrato;
            
            const detalleParaCrear = {
              servicios_id: servicio.servicios_id,
              categorias_id: categoriaId,
              unidades_medida_id: categoria.unidades_medida_id,
              cantidad: categoriaDetalle.cantidad,
-             cantidad_anos: añosContrato,
+             cantidad_anos: mesesContrato, // NOTA: Guardamos meses en cantidad_anos (sin cambiar BD)
              precio_usado: servicioItem.precioVentaFinal,
              subtotal: subtotal,
              cantidad_equipos: 0,
@@ -133,7 +135,7 @@ async createCotizacion(data) {
          }
        }
      } else {
-       // FALLBACK MEJORADO: Si no hay categoriasDetalle, usar método anterior con inferencia
+       // FALLBACK MEJORADO - SIN CAMBIOS HASTA EL CÁLCULO FINAL
        let cantidadPrincipal = 0;
        let cantidadSecundaria = 0;
        let cantidadGB = 0;
@@ -187,7 +189,7 @@ async createCotizacion(data) {
          }
        }
        
-       // Procesar cantidades según el tipo de unidad con inferencia
+       // Procesar cantidades según el tipo de unidad con inferencia - SIN CAMBIOS
        if (servicio.categoria && servicio.categoria.unidad_medida) {
          const tipoUnidad = servicio.categoria.unidad_medida.tipo;
          
@@ -198,7 +200,7 @@ async createCotizacion(data) {
              
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
-               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
+               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * mesesContrato) / precioUnitario), 1);
                cantidadGB = cantidadPrincipal;
              }
              break;
@@ -208,7 +210,7 @@ async createCotizacion(data) {
              
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
-               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
+               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * mesesContrato) / precioUnitario), 1);
              }
              break;
              
@@ -217,7 +219,7 @@ async createCotizacion(data) {
              
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
-               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
+               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * mesesContrato) / precioUnitario), 1);
              }
              break;
              
@@ -226,7 +228,7 @@ async createCotizacion(data) {
              
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
-               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
+               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * mesesContrato) / precioUnitario), 1);
              }
              break;
              
@@ -237,7 +239,7 @@ async createCotizacion(data) {
              
              if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
                const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
-               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
+               cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * mesesContrato) / precioUnitario), 1);
              }
              break;
          }
@@ -248,7 +250,7 @@ async createCotizacion(data) {
          // Inferencia para servicios sin tipo específico
          if (cantidadPrincipal === 0 && servicioItem.precioVentaFinal > 0) {
            const precioUnitario = servicio.precio_recomendado || servicio.precio_minimo || 1;
-           cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * añosContrato) / precioUnitario), 1);
+           cantidadPrincipal = Math.max(Math.round((servicioItem.precioVentaFinal * mesesContrato) / precioUnitario), 1);
          }
        }
        
@@ -256,14 +258,15 @@ async createCotizacion(data) {
        const totalUnidades = cantidadPrincipal + cantidadSecundaria;
        const cantidadFinal = Math.max(totalUnidades, 1); // Al menos 1 unidad
        
-       const subtotal = servicioItem.precioVentaFinal * cantidadFinal * añosContrato;
+       // CAMBIO: calcular subtotal usando meses en lugar de años
+       const subtotal = servicioItem.precioVentaFinal * cantidadFinal * mesesContrato;
        
        const detalleFallback = {
          servicios_id: servicio.servicios_id,
          categorias_id: categoriasId,
          unidades_medida_id: unidadesMedidaId,
          cantidad: cantidadFinal,
-         cantidad_anos: añosContrato,
+         cantidad_anos: mesesContrato, // NOTA: Guardamos meses en cantidad_anos (sin cambiar BD)
          precio_usado: servicioItem.precioVentaFinal,
          subtotal: subtotal,
          cantidad_equipos: cantidadSecundaria,
@@ -275,10 +278,10 @@ async createCotizacion(data) {
      }
    }
    
-   // 3. Determinar estado de la cotización
+   // 3. Determinar estado de la cotización - SIN CAMBIOS
    const estado = requiereAprobacion ? 'pendiente_aprobacion' : 'pendiente';
    
-   // 4. Crear cotización
+   // 4. Crear cotización - SIN CAMBIOS
    const nuevaCotizacion = await Cotizacion.create({
      clientes_id: clienteRecord.clientes_id,
      usuarios_id: usuarios_id,
@@ -294,7 +297,7 @@ async createCotizacion(data) {
      tipo_precio_pdf: tipoPrecio || 'venta'
    }, { transaction });
    
-   // 5. Crear detalles - una fila por categoría
+   // 5. Crear detalles - una fila por categoría - SIN CAMBIOS
    const detallesConCotizacionId = detallesParaCrear.map(detalle => ({
      ...detalle,
      cotizaciones_id: nuevaCotizacion.cotizaciones_id
@@ -325,7 +328,7 @@ async createCotizacion(data) {
  }
 }
 
- // Resto de métodos sin cambios...
+ // RESTO DE MÉTODOS SIN CAMBIOS...
  async getCotizaciones(filters) {
    try {
      const {
@@ -400,6 +403,7 @@ async createCotizacion(data) {
    }
  }
 
+ // RESTO DE MÉTODOS SIN CAMBIOS...
  async getCotizacionById(id) {
    try {
      const cotizacion = await Cotizacion.findByPk(id, {
@@ -460,6 +464,7 @@ async createCotizacion(data) {
    }
  }
 
+ // RESTO DE MÉTODOS SIN CAMBIOS...
  async updateEstadoCotizacion(id, data) {
    try {
      const cotizacion = await Cotizacion.findByPk(id);
@@ -552,95 +557,96 @@ async createCotizacion(data) {
  async getEstadisticas(filters = {}) {
    try {
      const whereConditions = {};
-     if (filters.usuarios_id) {
-       whereConditions.usuarios_id = filters.usuarios_id;
-     }
-     
-     const [
-       totalCotizaciones,
-       pendientes,
-       aprobadas,
-       rechazadas,
-       pendientesAprobacion
-     ] = await Promise.all([
-       Cotizacion.count({ where: whereConditions }),
-       Cotizacion.count({ where: { ...whereConditions, estado: 'pendiente' } }),
-       Cotizacion.count({ where: { ...whereConditions, estado: 'efectiva' } }),
-       Cotizacion.count({ where: { ...whereConditions, estado: 'rechazada' } }),
-       Cotizacion.count({ where: { ...whereConditions, estado: 'pendiente_aprobacion' } })
-     ]);
-     
-     const valorTotal = await Cotizacion.sum('total', {
-       where: { ...whereConditions, estado: 'efectiva' }
-     }) || 0;
-     
-     const estadisticas = {
-       totalCotizaciones,
-       pendientes,
-       aprobadas,
-       rechazadas,
-       pendientesAprobacion,
-       valorTotal,
-       tasaAprobacion: totalCotizaciones > 0 ? 
-         Math.round((aprobadas / totalCotizaciones) * 100) : 0
-     };
-     
-     return {
-       success: true,
-       estadisticas
-     };
-     
-   } catch (error) {
-     console.error('❌ Error en getEstadisticas:', error);
-     throw error;
-   }
- }
+    if (filters.usuarios_id) {
+      whereConditions.usuarios_id = filters.usuarios_id;
+    }
+    
+    const [
+      totalCotizaciones,
+      pendientes,
+      aprobadas,
+      rechazadas,
+      pendientesAprobacion
+    ] = await Promise.all([
+      Cotizacion.count({ where: whereConditions }),
+      Cotizacion.count({ where: { ...whereConditions, estado: 'pendiente' } }),
+      Cotizacion.count({ where: { ...whereConditions, estado: 'efectiva' } }),
+      Cotizacion.count({ where: { ...whereConditions, estado: 'rechazada' } }),
+      Cotizacion.count({ where: { ...whereConditions, estado: 'pendiente_aprobacion' } })
+    ]);
+    
+    const valorTotal = await Cotizacion.sum('total', {
+      where: { ...whereConditions, estado: 'efectiva' }
+    }) || 0;
+    
+    const estadisticas = {
+      totalCotizaciones,
+      pendientes,
+      aprobadas,
+      rechazadas,
+      pendientesAprobacion,
+      valorTotal,
+      tasaAprobacion: totalCotizaciones > 0 ? 
+        Math.round((aprobadas / totalCotizaciones) * 100) : 0
+    };
+    
+    return {
+      success: true,
+      estadisticas
+    };
+    
+  } catch (error) {
+    console.error('❌ Error en getEstadisticas:', error);
+    throw error;
+  }
+}
 
- async duplicarCotizacion(cotizacionId, usuarioId) {
-   const transaction = await sequelize.transaction();
-   
-   try {
-     const cotizacionOriginal = await Cotizacion.findOne({
-       where: {
-         cotizaciones_id: cotizacionId,
-         usuarios_id: usuarioId
-       },
-       include: [
-         {
-           model: CotizacionDetalle,
-           as: 'detalles',
-           include: [
-             {
-               model: Servicio,
-               as: 'servicio'
-             },
-             {
-               model: UnidadMedida,
-               as: 'unidad_medida'
-             }
-           ]
-         }
-       ],
-       transaction
-     });
-     
-     if (!cotizacionOriginal) {
-       await transaction.rollback();
-       return {
-         success: false,
-         message: 'Cotización no encontrada o no tienes permisos para duplicarla'
-       };
-     }
-     
-     const nuevaCotizacionData = {
-       clientes_id: cotizacionOriginal.clientes_id,
-       usuarios_id: cotizacionOriginal.usuarios_id,
-       total: cotizacionOriginal.total,
-       comentario: `Duplicado de cotización #${cotizacionOriginal.cotizaciones_id} - ${cotizacionOriginal.comentario || ''}`,
-       estado: 'pendiente',
-       pdf_generado: false,
-       incluir_nombre_encargado: cotizacionOriginal.incluir_nombre_encargado,
-       incluir_nombre_empresa: cotizacionOriginal.incluir_nombre_empresa,
+async duplicarCotizacion(cotizacionId, usuarioId) {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const cotizacionOriginal = await Cotizacion.findOne({
+      where: {
+        cotizaciones_id: cotizacionId,
+        usuarios_id: usuarioId
+      },
+      include: [
+        {
+          model: CotizacionDetalle,
+          as: 'detalles',
+          include: [
+            {
+              model: Servicio,
+              as: 'servicio'
+            },
+            {
+              model: UnidadMedida,
+              as: 'unidad_medida'
+            }
+          ]
+        }
+      ],
+      transaction
+    });
+    
+    if (!cotizacionOriginal) {
+      await transaction.rollback();
+      return {
+        success: false,
+        message: 'Cotización no encontrada o no tienes permisos para duplicarla'
+      };
+    }
+    
+    // NOTA: Los campos siguen igual, cantidad_anos guarda meses
+    const nuevaCotizacionData = {
+      clientes_id: cotizacionOriginal.clientes_id,
+      usuarios_id: cotizacionOriginal.usuarios_id,
+      total: cotizacionOriginal.total,
+      comentario: `Duplicado de cotización #${cotizacionOriginal.cotizaciones_id} - ${cotizacionOriginal.comentario || ''}`,
+      estado: 'pendiente',
+      pdf_generado: false,
+      incluir_nombre_encargado: cotizacionOriginal.incluir_nombre_encargado,
+      incluir_nombre_empresa: cotizacionOriginal.incluir_nombre_empresa,
       incluir_documento_fiscal: cotizacionOriginal.incluir_documento_fiscal,
       incluir_telefono_empresa: cotizacionOriginal.incluir_telefono_empresa,
       incluir_correo_empresa: cotizacionOriginal.incluir_correo_empresa,
@@ -659,7 +665,7 @@ async createCotizacion(data) {
         cantidad_equipos: detalle.cantidad_equipos,
         cantidad_servicios: detalle.cantidad_servicios,
         cantidad_gb: detalle.cantidad_gb,
-        cantidad_anos: detalle.cantidad_anos,
+        cantidad_anos: detalle.cantidad_anos, // NOTA: Esto sigue siendo meses
         precio_usado: detalle.precio_usado,
         subtotal: detalle.subtotal
       }));
