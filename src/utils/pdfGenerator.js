@@ -1,4 +1,4 @@
-// utils/pdfGenerator.js - ACTUALIZADO PARA MANEJAR DESCUENTOS Y MESES GRATIS
+// utils/pdfGenerator.js - ACTUALIZADO PARA MANEJAR DESCUENTOS, MESES GRATIS Y 4 DECIMALES
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -9,6 +9,46 @@ constructor() {
   this.doc = null;
   this.pageMargin = 40;
   this.currentY = this.pageMargin;
+}
+
+// 🔧 NUEVO: Función para formatear moneda con soporte automático para 4 decimales
+_formatCurrency(amount) {
+  if (amount === null || amount === undefined || amount === 0) {
+    return '$0.00';
+  }
+  
+  const numero = parseFloat(amount);
+  
+  // Verificar si tiene más de 2 decimales significativos
+  const tieneDecimalesExtras = (numero * 10000) % 100 !== 0;
+  
+  // Si tiene decimales extras (más de 2), mostrar 4 decimales, sino mostrar 2
+  const decimales = tieneDecimalesExtras ? 4 : 2;
+  
+  return `$${numero.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: decimales
+  })}`;
+}
+
+// 🔧 NUEVO: Función helper para formatear números sin símbolo de moneda
+_formatNumber(amount) {
+  if (amount === null || amount === undefined || amount === 0) {
+    return '0.00';
+  }
+  
+  const numero = parseFloat(amount);
+  
+  // Verificar si tiene más de 2 decimales significativos
+  const tieneDecimalesExtras = (numero * 10000) % 100 !== 0;
+  
+  // Si tiene decimales extras (más de 2), mostrar 4 decimales, sino mostrar 2
+  const decimales = tieneDecimalesExtras ? 4 : 2;
+  
+  return numero.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: decimales
+  });
 }
 
 // Agregar parámetro tipo para manejar COPIA
@@ -53,7 +93,7 @@ async generarCotizacionPDF(cotizacion, tipo = 'original', outputPath = null) {
   }
 }
 
-// 🔧 ACTUALIZADO: Incluir lógica de descuentos porcentuales Y meses gratis
+// 🔧 ACTUALIZADO: Incluir lógica de descuentos porcentuales Y meses gratis CON 4 DECIMALES
 async _construirPDF(cotizacion, tipo = 'original') {
   // Configurar colores
   const primaryColor = '#2c3e50';
@@ -154,7 +194,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
   this.doc.text(`Vendedor: ${cotizacion.vendedor.nombre_completo}`, 300, yPosition);
   yPosition += 15;
 
-  // 🆕 INFORMACIÓN DE DESCUENTOS APLICADOS
+  // INFORMACIÓN DE DESCUENTOS APLICADOS
   const tieneDescuento = cotizacion.tiene_descuento && parseFloat(cotizacion.descuento_porcentaje) > 0;
   const tieneMesesGratis = cotizacion.tiene_meses_gratis && parseInt(cotizacion.meses_gratis) > 0;
 
@@ -242,7 +282,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
       }
     }
 
-    // SUBTOTAL COMPACTO
+    // SUBTOTAL COMPACTO - 🔧 ACTUALIZADO CON 4 DECIMALES
     totalMensualReal += servicioSubtotalMensual;
     
     this.doc.fontSize(9)
@@ -250,7 +290,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
              .text(`Subtotal ${servicioData.nombre}:`, 60, yPosition, { width: 350 });
 
     this.doc.fillColor('#e74c3c')
-             .text(`$${parseFloat(servicioSubtotalMensual).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes`, 400, yPosition, { 
+             .text(`${this._formatCurrency(servicioSubtotalMensual)}/mes`, 400, yPosition, { 
                width: 120, 
                align: 'right' 
              });
@@ -268,7 +308,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
     servicioIndex++;
   }
 
-  // 🔧 RESUMEN FINANCIERO ACTUALIZADO CON DESCUENTOS COMBINADOS
+  // 🔧 RESUMEN FINANCIERO ACTUALIZADO CON DESCUENTOS COMBINADOS Y 4 DECIMALES
   this.doc.fontSize(11)
            .fillColor(primaryColor)
            .text('RESUMEN FINANCIERO:', 40, yPosition);
@@ -280,7 +320,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
   const mesesGratis = tieneMesesGratis ? parseInt(cotizacion.meses_gratis) : 0;
   const porcentajeDescuento = tieneDescuento ? parseFloat(cotizacion.descuento_porcentaje) : 0;
 
-  // 🔧 CALCULAR TOTALES PASO A PASO PARA MOSTRAR EN PDF
+  // CALCULAR TOTALES PASO A PASO PARA MOSTRAR EN PDF
   const totalOriginalVerdadero = cotizacion.total_original ? parseFloat(cotizacion.total_original) : (totalMensualReal * mesesContrato);
   const costoMensualOriginal = totalOriginalVerdadero / mesesContrato;
   
@@ -302,7 +342,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
   const totalBaseDatos = parseFloat(cotizacion.total);
   const costoMensualFinal = totalBaseDatos / mesesFacturables;
 
-  // 🔧 CAJA DE RESUMEN EXPANDIDA PARA MOSTRAR TODOS LOS CÁLCULOS
+  // CAJA DE RESUMEN EXPANDIDA PARA MOSTRAR TODOS LOS CÁLCULOS
   let alturaResumen = 50; // Base
   if (tieneMesesGratis) alturaResumen += 15; // +1 línea para meses gratis
   if (tieneDescuento) alturaResumen += 15; // +1 línea para descuento
@@ -313,14 +353,14 @@ async _construirPDF(cotizacion, tipo = 'original') {
 
   yPosition += 12;
 
-  // MOSTRAR TOTAL ORIGINAL SI HAY DESCUENTOS
+  // MOSTRAR TOTAL ORIGINAL SI HAY DESCUENTOS - 🔧 ACTUALIZADO CON 4 DECIMALES
   if (tieneMesesGratis || tieneDescuento) {
     this.doc.fontSize(9)
              .fillColor('#666')
              .text(`Total original (${mesesContrato} meses):`, 60, yPosition);
     
     this.doc.fillColor('#6c757d')
-             .text(`$${totalOriginalVerdadero.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+             .text(this._formatCurrency(totalOriginalVerdadero), 420, yPosition, { 
                width: 120, 
                align: 'right' 
              });
@@ -328,13 +368,13 @@ async _construirPDF(cotizacion, tipo = 'original') {
     yPosition += 15;
   }
 
-  // MOSTRAR MESES GRATIS SI APLICA
+  // MOSTRAR MESES GRATIS SI APLICA - 🔧 ACTUALIZADO CON 4 DECIMALES
   if (tieneMesesGratis) {
     this.doc.fillColor('#666')
              .text(`Meses gratis aplicados (${mesesGratis}):`, 60, yPosition);
     
     this.doc.fillColor('#27ae60')
-             .text(`-$${ahorroMesesGratis.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+             .text(`-${this._formatCurrency(ahorroMesesGratis)}`, 420, yPosition, { 
                width: 120, 
                align: 'right' 
              });
@@ -342,13 +382,13 @@ async _construirPDF(cotizacion, tipo = 'original') {
     yPosition += 15;
   }
 
-  // MOSTRAR DESCUENTO PORCENTUAL SI APLICA
+  // MOSTRAR DESCUENTO PORCENTUAL SI APLICA - 🔧 ACTUALIZADO CON 4 DECIMALES
   if (tieneDescuento) {
     this.doc.fillColor('#666')
              .text(`Descuento aplicado (${porcentajeDescuento}%):`, 60, yPosition);
     
     this.doc.fillColor('#e74c3c')
-             .text(`-$${montoDescuentoPorcentual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+             .text(`-${this._formatCurrency(montoDescuentoPorcentual)}`, 420, yPosition, { 
                width: 120, 
                align: 'right' 
              });
@@ -356,12 +396,12 @@ async _construirPDF(cotizacion, tipo = 'original') {
     yPosition += 15;
   }
 
-  // COSTO MENSUAL FINAL
+  // COSTO MENSUAL FINAL - 🔧 ACTUALIZADO CON 4 DECIMALES
   this.doc.fillColor('#666')
            .text(`Costo mensual final:`, 60, yPosition);
   
   this.doc.fillColor('#2980b9')
-           .text(`$${costoMensualFinal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+           .text(this._formatCurrency(costoMensualFinal), 420, yPosition, { 
              width: 120, 
              align: 'right' 
            });
@@ -380,7 +420,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
 
   yPosition += 20;
 
-  // 🔧 TOTAL FINAL DESTACADO
+  // TOTAL FINAL DESTACADO - 🔧 ACTUALIZADO CON 4 DECIMALES
   yPosition += 15;
 
   this.doc.fontSize(14)
@@ -389,19 +429,19 @@ async _construirPDF(cotizacion, tipo = 'original') {
 
   this.doc.fontSize(18)
            .fillColor('black')
-           .text(`$${totalBaseDatos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 420, yPosition, { 
+           .text(this._formatCurrency(totalBaseDatos), 420, yPosition, { 
              width: 120, 
              align: 'right' 
            });
 
-  // 🆕 MOSTRAR AHORRO TOTAL SI HAY DESCUENTOS
+  // MOSTRAR AHORRO TOTAL SI HAY DESCUENTOS - 🔧 ACTUALIZADO CON 4 DECIMALES
   if (tieneMesesGratis || tieneDescuento) {
     const ahorroTotal = totalOriginalVerdadero - totalBaseDatos;
     yPosition += 25;
     
     this.doc.fontSize(10)
              .fillColor('#27ae60')
-             .text(`Ahorro total para el cliente: $${ahorroTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 40, yPosition, { 
+             .text(`Ahorro total para el cliente: ${this._formatCurrency(ahorroTotal)}`, 40, yPosition, { 
                align: 'center',
                width: 520
              });
@@ -454,7 +494,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
            .text('• Los impuestos correspondientes (ISV, impuesto sobre la renta, etc.) serán aplicados según la', 40, yPosition + 50)
            .text('  normativa fiscal vigente al momento de la facturación.', 40, yPosition + 60);
 
-  // 🆕 CONDICIÓN ESPECIAL PARA MESES GRATIS
+  // CONDICIÓN ESPECIAL PARA MESES GRATIS
   if (tieneMesesGratis) {
     this.doc.text('• Los meses gratis aplicados se descontarán al inicio del período contractual.', 40, yPosition + 70);
     yPosition += 10;
@@ -558,7 +598,7 @@ _agruparDetallesPorServicio(detalles) {
   return serviciosAgrupados;
 }
 
-// Formatear cantidad con cálculos mensuales
+// 🔧 ACTUALIZADO: Formatear cantidad con cálculos mensuales Y 4 decimales
 _formatearCantidadCategoriaCorregida(categoria) {
   const cantidad = categoria.cantidad || 0;
   const meses = categoria.cantidad_meses || 1;
@@ -623,14 +663,14 @@ _formatearCantidadCategoriaCorregida(categoria) {
     const costoTotalContrato = costoMensualCategoria * meses;
     
     cantidadTexto = `${descripcionUnidad} | `;
-    cantidadTexto += `$${precioMensualUnitario.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes`;
+    cantidadTexto += `${this._formatCurrency(precioMensualUnitario)}/mes`;
     
     if (cantidad > 1) {
-      cantidadTexto += ` × ${cantidad} = $${costoMensualCategoria.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mes`;
+      cantidadTexto += ` × ${cantidad} = ${this._formatCurrency(costoMensualCategoria)}/mes`;
     }
     
     if (meses > 1) {
-      cantidadTexto += ` × ${meses} meses = $${costoTotalContrato.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      cantidadTexto += ` × ${meses} meses = ${this._formatCurrency(costoTotalContrato)}`;
     }
   } else {
     cantidadTexto = `${descripcionUnidad} | Duración: ${meses} mes${meses > 1 ? 'es' : ''}`;

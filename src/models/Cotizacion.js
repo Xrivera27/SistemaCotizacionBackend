@@ -28,7 +28,7 @@ const Cotizacion = sequelize.define('Cotizacion', {
     defaultValue: DataTypes.NOW
   },
   total: {
-    type: DataTypes.DECIMAL(15, 2),
+    type: DataTypes.DECIMAL(18, 4),
     allowNull: false
   },
   comentario: {
@@ -67,7 +67,6 @@ const Cotizacion = sequelize.define('Cotizacion', {
     type: DataTypes.ENUM('minimo', 'venta'),
     defaultValue: 'venta'
   },
-  // 🆕 CAMPOS DE AUDITORÍA
   aprobado_por: {
     type: DataTypes.BIGINT,
     allowNull: true,
@@ -100,14 +99,12 @@ const Cotizacion = sequelize.define('Cotizacion', {
     type: DataTypes.STRING(255),
     allowNull: true
   },
-  
-  // 🆕 CAMPOS DE DESCUENTO
   descuento_porcentaje: {
     type: DataTypes.DECIMAL(5, 2),
     defaultValue: 0.00
   },
   total_original: {
-    type: DataTypes.DECIMAL(15, 2),
+    type: DataTypes.DECIMAL(18, 4),
     allowNull: true
   },
   comentario_descuento: {
@@ -134,8 +131,6 @@ const Cotizacion = sequelize.define('Cotizacion', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
-
-  // 🆕 CAMPOS DE MESES GRATIS
   meses_gratis: {
     type: DataTypes.INTEGER,
     defaultValue: 0
@@ -160,13 +155,10 @@ const Cotizacion = sequelize.define('Cotizacion', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
-
-  // 🆕 OBSERVACIONES
   observaciones: {
     type: DataTypes.TEXT,
     allowNull: true
   }
-  
 }, {
   tableName: 'cotizaciones',
   timestamps: true,

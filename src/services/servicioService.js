@@ -210,13 +210,12 @@ class ServicioService {
        };
      }
      
-     // Validar precios
-     if (parseFloat(otrosDatos.precio_minimo) < 0) {
-       return {
-         success: false,
-         message: 'El precio mínimo no puede ser negativo'
-       };
-     }
+     if (parseFloat(otrosDatos.precio_minimo) < 0.0001) {
+    return {
+      success: false,
+      message: 'El precio mínimo debe ser mayor a 0.0001'
+    };
+  }
      
      if (parseFloat(otrosDatos.precio_recomendado) < parseFloat(otrosDatos.precio_minimo)) {
        return {
@@ -229,10 +228,10 @@ class ServicioService {
        descripcion: otrosDatos.descripcion?.trim() || null,
        categorias_id: categoriaPrincipal, // Mantener compatibilidad
        categorias_ids: JSON.stringify(categoriasArray), // 🔧 CORREGIDO: Asegurar JSON válido
-       precio_minimo: parseFloat(otrosDatos.precio_minimo),
-       precio_recomendado: parseFloat(otrosDatos.precio_recomendado),
-       limite_minimo: parseFloat(limite_minimo || 1.00), // 🆕 NUEVO
-       limite_maximo: limite_maximo ? parseFloat(limite_maximo) : null, // 🆕 NUEVO
+        precio_minimo: parseFloat(otrosDatos.precio_minimo),
+    precio_recomendado: parseFloat(otrosDatos.precio_recomendado),
+    limite_minimo: parseFloat(limite_minimo || 1.0000),
+    limite_maximo: limite_maximo ? parseFloat(limite_maximo) : null,
        estado: 'activo'
      });
      
@@ -871,10 +870,10 @@ class ServicioService {
      servicios_id: servicio.servicios_id,
      nombre: servicio.nombre,
      descripcion: servicio.descripcion,
-     precio_minimo: parseFloat(servicio.precio_minimo) || 0,
-     precio_recomendado: parseFloat(servicio.precio_recomendado) || 0,
-     limite_minimo: parseFloat(servicio.limite_minimo) || 1.00, // 🆕 NUEVO
-     limite_maximo: servicio.limite_maximo ? parseFloat(servicio.limite_maximo) : null, // 🆕 NUEVO
+    precio_minimo: parseFloat(servicio.precio_minimo) || 0, // Quitar .toFixed(2)
+    precio_recomendado: parseFloat(servicio.precio_recomendado) || 0, // Quitar .toFixed(2)
+    limite_minimo: parseFloat(servicio.limite_minimo) || 1.0000, // Cambiar de 1.00 a 1.0000
+    limite_maximo: servicio.limite_maximo ? parseFloat(servicio.limite_maximo) : null,
      categorias_id: servicio.categorias_id, // 🔧 Mantener compatibilidad
      categorias_ids: categoriasArray, // 🆕 Array de IDs de categorías
      categoria: categoriaPrincipal, // 🔧 Categoría principal para compatibilidad
@@ -906,17 +905,17 @@ class ServicioService {
  }
 
  // 🆕 NUEVO: Método para validar límites
- validateLimites(limiteMinimo, limiteMaximo) {
-   // Validar límite mínimo
-   if (limiteMinimo !== undefined && limiteMinimo !== null) {
-     const min = parseFloat(limiteMinimo);
-     if (isNaN(min) || min <= 0) {
-       return {
-         valid: false,
-         message: 'El límite mínimo debe ser un número mayor a 0'
-       };
-     }
-   }
+validateLimites(limiteMinimo, limiteMaximo) {
+  if (limiteMinimo !== undefined && limiteMinimo !== null) {
+    const min = parseFloat(limiteMinimo);
+    if (isNaN(min) || min < 0.0001) { // Cambiar de 0 a 0.0001
+      return {
+        valid: false,
+        message: 'El límite mínimo debe ser un número mayor a 0.0001'
+      };
+    }
+  }
+
    
    // Validar límite máximo
    if (limiteMaximo !== undefined && limiteMaximo !== null && limiteMaximo !== '') {

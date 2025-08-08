@@ -99,7 +99,8 @@ async createCotizacion(data) {
          const categoriaDetalle = servicioItem.categoriasDetalle[j];
          
          if (categoriaDetalle.cantidad > 0) {
-           const categoriaId = categoriaDetalle.id || categoriaDetalle.categorias_id;
+           const categoriaId = categoriaDetalle.id || categoriaDetalle.categorias_id || categoriaDetalle.categoria_id;
+
            
            const categoria = await Categoria.findByPk(categoriaId, {
              include: [
@@ -118,18 +119,19 @@ async createCotizacion(data) {
            // CAMBIO: calcular subtotal usando meses en lugar de años
            const subtotal = categoriaDetalle.cantidad * servicioItem.precioVentaFinal * mesesContrato;
            
-           const detalleParaCrear = {
-             servicios_id: servicio.servicios_id,
-             categorias_id: categoriaId,
-             unidades_medida_id: categoria.unidades_medida_id,
-             cantidad: categoriaDetalle.cantidad,
-             cantidad_anos: mesesContrato, // NOTA: Guardamos meses en cantidad_anos (sin cambiar BD)
-             precio_usado: servicioItem.precioVentaFinal,
-             subtotal: subtotal,
-             cantidad_equipos: 0,
-             cantidad_servicios: categoriaDetalle.cantidad,
-             cantidad_gb: categoria.unidad_medida.tipo === 'capacidad' ? categoriaDetalle.cantidad : 0
-           };
+           // En la sección de categoriasDetalle, después de validar la categoría:
+const detalleParaCrear = {
+  servicios_id: servicio.servicios_id,
+  categorias_id: categoria.categorias_id, // ← Asegúrate de usar categoria.categorias_id
+  unidades_medida_id: categoria.unidades_medida_id,
+  cantidad: categoriaDetalle.cantidad,
+  cantidad_anos: mesesContrato,
+  precio_usado: servicioItem.precioVentaFinal,
+  subtotal: subtotal,
+  cantidad_equipos: 0,
+  cantidad_servicios: categoriaDetalle.cantidad,
+  cantidad_gb: categoria.unidad_medida.tipo === 'capacidad' ? categoriaDetalle.cantidad : 0
+};
            
            detallesParaCrear.push(detalleParaCrear);
          }

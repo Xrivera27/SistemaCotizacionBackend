@@ -1,4 +1,3 @@
-// models/CotizacionDetalle.js
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -24,7 +23,6 @@ const CotizacionDetalle = sequelize.define('CotizacionDetalle', {
      key: 'servicios_id'
    }
  },
- // ✅ AGREGAR: Campo categorias_id FALTANTE
  categorias_id: {
    type: DataTypes.BIGINT,
    allowNull: false,
@@ -33,7 +31,6 @@ const CotizacionDetalle = sequelize.define('CotizacionDetalle', {
      key: 'categorias_id'
    }
  },
- // 🆕 NUEVO: Relación directa con unidades de medida
  unidades_medida_id: {
    type: DataTypes.BIGINT,
    allowNull: false,
@@ -42,13 +39,11 @@ const CotizacionDetalle = sequelize.define('CotizacionDetalle', {
      key: 'unidades_medida_id'
    }
  },
- // 🆕 NUEVO: Campo unificado para cantidad
  cantidad: {
    type: DataTypes.INTEGER,
    allowNull: false,
    defaultValue: 1
  },
- // 🔄 MANTENER temporalmente para compatibilidad (eliminar después)
  cantidad_equipos: {
    type: DataTypes.INTEGER,
    defaultValue: 0
@@ -66,11 +61,11 @@ const CotizacionDetalle = sequelize.define('CotizacionDetalle', {
    defaultValue: 1
  },
  precio_usado: {
-   type: DataTypes.DECIMAL(12, 2),
+   type: DataTypes.DECIMAL(15, 4),
    allowNull: false
  },
  subtotal: {
-   type: DataTypes.DECIMAL(15, 2),
+   type: DataTypes.DECIMAL(18, 4),
    allowNull: false
  }
 }, {
@@ -80,27 +75,22 @@ const CotizacionDetalle = sequelize.define('CotizacionDetalle', {
  updatedAt: false
 });
 
-// ✅ AGREGAR ESTA FUNCIÓN PARA DEFINIR ASOCIACIONES
 CotizacionDetalle.associate = function(models) {
- // Asociación con Cotizacion
  CotizacionDetalle.belongsTo(models.Cotizacion, {
    foreignKey: 'cotizaciones_id',
    as: 'cotizacion'
  });
  
- // Asociación con Servicio
  CotizacionDetalle.belongsTo(models.Servicio, {
    foreignKey: 'servicios_id',
    as: 'servicio'
  });
  
- // ✅ NUEVA: Asociación con Categoria
  CotizacionDetalle.belongsTo(models.Categoria, {
    foreignKey: 'categorias_id',
    as: 'categoria'
  });
  
- // ✅ NUEVA: Asociación con UnidadMedida
  CotizacionDetalle.belongsTo(models.UnidadMedida, {
    foreignKey: 'unidades_medida_id',
    as: 'unidad_medida'

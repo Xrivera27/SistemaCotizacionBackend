@@ -29,27 +29,26 @@ const Servicio = sequelize.define('Servicio', {
     allowNull: true
   },
   precio_minimo: {
-    type: DataTypes.DECIMAL(12, 2),
+    type: DataTypes.DECIMAL(15, 4),
     allowNull: false
   },
   precio_recomendado: {
-    type: DataTypes.DECIMAL(12, 2),
+    type: DataTypes.DECIMAL(15, 4),
     allowNull: false
   },
-  // 🆕 NUEVOS CAMPOS DE LÍMITES
   limite_minimo: {
-    type: DataTypes.DECIMAL(10, 2),
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    defaultValue: 1.00,
+    defaultValue: 1.0000,
     validate: {
       min: {
-        args: [0.01],
+        args: [0.0001],
         msg: 'El límite mínimo debe ser mayor a 0'
       }
     }
   },
   limite_maximo: {
-    type: DataTypes.DECIMAL(10, 2),
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: true,
     defaultValue: null,
     validate: {
@@ -70,7 +69,6 @@ const Servicio = sequelize.define('Servicio', {
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
-  // 🆕 VALIDACIÓN A NIVEL DE MODELO
   validate: {
     limitesValidos() {
       if (this.limite_maximo !== null && this.limite_minimo && this.limite_maximo < this.limite_minimo) {
