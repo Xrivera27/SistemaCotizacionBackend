@@ -416,14 +416,6 @@ async _construirPDF(cotizacion, tipo = 'original') {
   }
 
   // COSTO MENSUAL FINAL - 🔧 ACTUALIZADO CON 4 DECIMALES
-  this.doc.fillColor('#666')
-           .text(`Costo mensual final:`, 60, yPosition);
-  
-  this.doc.fillColor('#2980b9')
-           .text(this._formatCurrency(costoMensualFinal), 420, yPosition, { 
-             width: 120, 
-             align: 'right' 
-           });
 
   yPosition += 15;
 
@@ -439,19 +431,19 @@ async _construirPDF(cotizacion, tipo = 'original') {
 
   yPosition += 20;
 
-  // TOTAL FINAL DESTACADO - 🔧 ACTUALIZADO CON 4 DECIMALES
-  yPosition += 15;
+// TOTAL MENSUAL FINAL DESTACADO - 🔧 ACTUALIZADO CON 4 DECIMALES
+yPosition += 15;
 
-  this.doc.fontSize(14)
-           .fillColor('black')
-           .text('TOTAL DEL CONTRATO:', 40, yPosition, { width: 300 });
+this.doc.fontSize(14)
+         .fillColor('black')
+         .text('TOTAL MENSUAL FINAL:', 40, yPosition, { width: 300 });
 
-  this.doc.fontSize(18)
-           .fillColor('black')
-           .text(this._formatCurrency(totalBaseDatos), 420, yPosition, { 
-             width: 120, 
-             align: 'right' 
-           });
+this.doc.fontSize(18)
+         .fillColor('black')
+         .text(this._formatCurrency(costoMensualFinal), 420, yPosition, { 
+           width: 120, 
+           align: 'right' 
+         });
 
   // MOSTRAR AHORRO TOTAL SI HAY DESCUENTOS - 🔧 ACTUALIZADO CON 4 DECIMALES
   if (tieneMesesGratis || tieneDescuento) {
