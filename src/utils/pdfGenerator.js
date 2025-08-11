@@ -1,4 +1,4 @@
-// utils/pdfGenerator.js - ACTUALIZADO PARA MANEJAR DESCUENTOS, MESES GRATIS Y 4 DECIMALES
+// utils/pdfGenerator.js - ACTUALIZADO PARA MANEJAR DESCUENTOS, MESES GRATIS Y 4 DECIMALES + DIMENSIONES CORREGIDAS
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -93,7 +93,7 @@ async generarCotizacionPDF(cotizacion, tipo = 'original', outputPath = null) {
   }
 }
 
-// 🔧 ACTUALIZADO: Incluir lógica de descuentos porcentuales Y meses gratis CON 4 DECIMALES
+// 🔧 ACTUALIZADO: Dimensiones corregidas para encabezado y pie
 async _construirPDF(cotizacion, tipo = 'original') {
   // Configurar colores
   const primaryColor = '#2c3e50';
@@ -102,34 +102,50 @@ async _construirPDF(cotizacion, tipo = 'original') {
   
   let yPosition = 40;
   
-  // HEADER COMPACTO
-  this.doc.fontSize(22)
-           .fillColor(primaryColor)
-           .text('PERDOMO Y ASOCIADOS S. DE R.L', 40, yPosition);
+  // ENCABEZADO CON IMAGEN - DIMENSIONES CORREGIDAS
+  try {
+    // Intentar cargar el encabezado
+    const encabezadoPath = path.join(process.cwd(), 'src', 'utils', 'encabezado lignasec.png');
+    
+    // Verificar si el archivo existe
+    if (fs.existsSync(encabezadoPath)) {
+      // Insertar el encabezado con dimensiones más pequeñas
+      this.doc.image(encabezadoPath, 0, 0, { 
+        width: 595.28,  // Ancho completo de página A4
+        height: 80      // ✅ Altura reducida a 80px
+      });
+      
+      // Ajustar la posición Y después del encabezado
+      yPosition = 90;   // ✅ Empezar más arriba
+    } else {
+      // Si no existe el encabezado, usar texto como fallback
+      console.warn('⚠️ Encabezado no encontrado en:', encabezadoPath);
+      this.doc.fontSize(22)
+               .fillColor(primaryColor)
+               .text('LIGNASEC', 40, yPosition);
+      this.doc.fontSize(12)
+               .fillColor('#7f8c8d')
+               .text('EFICIENCIA, CONFIANZA Y SEGURIDAD', 40, yPosition + 25);
+      yPosition += 60;
+    }
+  } catch (error) {
+    console.warn('⚠️ No se pudo cargar el encabezado:', error.message);
+    // Fallback al texto original si hay error
+    this.doc.fontSize(22)
+             .fillColor(primaryColor)
+             .text('LIGNASEC', 40, yPosition);
+    this.doc.fontSize(12)
+             .fillColor('#7f8c8d')
+             .text('EFICIENCIA, CONFIANZA Y SEGURIDAD', 40, yPosition + 25);
+    yPosition += 60;
+  }
 
   // MARCA DE COPIA en la esquina superior derecha
   if (tipo === 'copia') {
     this.doc.fontSize(14)
              .fillColor('#f39c12')
-             .text('COPIA', 500, 40, { width: 60, align: 'right' });
+             .text('COPIA', 500, yPosition - 20, { width: 60, align: 'right' });
   }
-
-  this.doc.fontSize(9)
-           .fillColor('#7f8c8d')
-           .text('Dirección de la empresa: Col. Sauce', 40, yPosition + 25)
-           .text('Teléfono: +504 2443-6618 | Email: perdomoyasociados@gmail.com', 40, yPosition + 37)
-           .text('www.perdomoyasociados.com', 40, yPosition + 49);
-
-  yPosition += 70;
-
-  // Línea separadora
-  this.doc.strokeColor('#ecf0f1')
-           .lineWidth(1.5)
-           .moveTo(40, yPosition)
-           .lineTo(560, yPosition)
-           .stroke();
-
-  yPosition += 15;
 
   // TÍTULO COMPACTO
   this.doc.fontSize(16)
@@ -162,15 +178,18 @@ async _construirPDF(cotizacion, tipo = 'original') {
 
   this.doc.fontSize(9).fillColor('#555');
 
+  if (incluirInfo.empresa) {
+    this.doc.text(`Empresa: ${cotizacion.cliente.nombre_empresa}`, 40, yPosition);
+    yPosition += 10;
+  }
+
+
   if (incluirInfo.encargado) {
     this.doc.text(`Encargado: ${cotizacion.cliente.nombre_encargado}`, 40, yPosition);
     yPosition += 10;
   }
 
-  if (incluirInfo.empresa) {
-    this.doc.text(`Empresa: ${cotizacion.cliente.nombre_empresa}`, 40, yPosition);
-    yPosition += 10;
-  }
+  
 
   if (incluirInfo.documento) {
     this.doc.text(`Documento Fiscal: ${cotizacion.cliente.documento_fiscal}`, 40, yPosition);
@@ -191,7 +210,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
 
   // INFORMACIÓN GENERAL
   this.doc.text(`Fecha: ${new Date(cotizacion.fecha_creacion).toLocaleDateString('es-HN')}`, 40, yPosition);
-  this.doc.text(`Vendedor: ${cotizacion.vendedor.nombre_completo}`, 300, yPosition);
+  this.doc.text(`Agente de Ventas: ${cotizacion.vendedor.nombre_completo}`, 300, yPosition);
   yPosition += 15;
 
   // INFORMACIÓN DE DESCUENTOS APLICADOS
@@ -470,7 +489,7 @@ async _construirPDF(cotizacion, tipo = 'original') {
   // NOTA DE IMPUESTOS COMPACTA
   this.doc.fontSize(9)
            .fillColor('#e74c3c')
-           .text('* Los precios cotizados no incluyen impuestos aplicables según la legislación vigente.', 40, yPosition, { 
+           .text('* El precio cotizado no incluye impuestos sobre venta.', 40, yPosition, { 
              align: 'center',
              width: 520
            });
@@ -491,16 +510,14 @@ async _construirPDF(cotizacion, tipo = 'original') {
            .text('• Los precios cotizados corresponden a la cantidad de equipos especificada. Cualquier variación en el número', 40, yPosition + 20)
            .text('  de equipos al momento de la implementación será facturada según la cantidad real instalada.', 40, yPosition + 30)
            .text('• Las visitas técnicas fuera del área metropolitana de La Ceiba generan costos adicionales.', 40, yPosition + 40)
-           .text('• Los impuestos correspondientes (ISV, impuesto sobre la renta, etc.) serán aplicados según la', 40, yPosition + 50)
-           .text('  normativa fiscal vigente al momento de la facturación.', 40, yPosition + 60);
 
   // CONDICIÓN ESPECIAL PARA MESES GRATIS
   if (tieneMesesGratis) {
-    this.doc.text('• Los meses gratis aplicados se descontarán al inicio del período contractual.', 40, yPosition + 70);
+    this.doc.text('• Los meses gratis aplicados se descontarán al inicio del período contractual.', 40, yPosition + 50);
     yPosition += 10;
   }
 
-  this.doc.text('• El contrato se factura mensualmente según la duración especificada en la cotización.', 40, yPosition + 70);
+  this.doc.text('• La factura se generará mensualmente según la duración especificada en la cotización.', 40, yPosition + 50);
 
   yPosition += 90;
 
@@ -521,22 +538,44 @@ async _construirPDF(cotizacion, tipo = 'original') {
              width: 520
            });
 
-  yPosition += 20;
+  yPosition += 40;
 
-  // INFORMACIÓN DE CONTACTO FINAL
-  this.doc.fontSize(7)
-           .fillColor('#999')
-           .text('Perdomo y Asociados S. de R.L. | Col. Sauce | Tel: +504 2443-6618', 40, yPosition, {
-             align: 'center',
-             width: 520
-           });
-
-  yPosition += 10;
-
-  this.doc.text('perdomoyasociados@gmail.com | www.perdomoyasociados.com', 40, yPosition, {
-    align: 'center',
-    width: 520
-  });
+  // PIE DE PÁGINA CON IMAGEN - DIMENSIONES CORREGIDAS
+  try {
+    // Intentar cargar el pie de página
+    const piePath = path.join(process.cwd(), 'src', 'utils', 'pie lignasec.png');
+    
+    // ✅ Calcular posición más alta para el pie
+    const piePosition = 842.89 - 40; // Altura menor para el pie
+    
+    // Verificar si el archivo existe
+    if (fs.existsSync(piePath)) {
+      // Insertar el pie de página con altura reducida
+      this.doc.image(piePath, 0, piePosition, { 
+        width: 595.28,  // Ancho completo de página A4
+        height: 40      // ✅ Altura reducida a 40px
+      });
+    } else {
+      // Si no existe el pie, usar texto como fallback
+      console.warn('⚠️ Pie de página no encontrado en:', piePath);
+      this.doc.fontSize(7)
+               .fillColor('#999')
+               .text('www.lignasec.com | EFICIENCIA, CONFIANZA Y SEGURIDAD', 40, piePosition, {
+                 align: 'center',
+                 width: 520
+               });
+    }
+  } catch (error) {
+    console.warn('⚠️ No se pudo cargar el pie de página:', error.message);
+    // Fallback al texto original si hay error
+    const piePosition = 842.89 - 40;
+    this.doc.fontSize(7)
+             .fillColor('#999')
+             .text('www.lignasec.com | EFICIENCIA, CONFIANZA Y SEGURIDAD', 40, piePosition, {
+               align: 'center',
+               width: 520
+             });
+  }
 
   // MARCA DE AGUA PARA COPIAS (opcional, más sutil)
   if (tipo === 'copia') {
@@ -664,27 +703,27 @@ _formatearCantidadCategoriaCorregida(categoria) {
     
     cantidadTexto = `${descripcionUnidad} | `;
     cantidadTexto += `${this._formatCurrency(precioMensualUnitario)}/mes`;
-    
-    if (cantidad > 1) {
-      cantidadTexto += ` × ${cantidad} = ${this._formatCurrency(costoMensualCategoria)}/mes`;
-    }
-    
-    if (meses > 1) {
-      cantidadTexto += ` × ${meses} meses = ${this._formatCurrency(costoTotalContrato)}`;
-    }
-  } else {
-    cantidadTexto = `${descripcionUnidad} | Duración: ${meses} mes${meses > 1 ? 'es' : ''}`;
+  
+  if (cantidad > 1) {
+    cantidadTexto += ` × ${cantidad} = ${this._formatCurrency(costoMensualCategoria)}/mes`;
   }
   
-  return {
-    cantidadTexto,
-    costoMensualCategoria
-  };
+  if (meses > 1) {
+    cantidadTexto += ` × ${meses} meses = ${this._formatCurrency(costoTotalContrato)}`;
+  }
+} else {
+  cantidadTexto = `${descripcionUnidad} | Duración: ${meses} mes${meses > 1 ? 'es' : ''}`;
+}
+
+return {
+  cantidadTexto,
+  costoMensualCategoria
+};
 }
 
 _formatearCantidadCategoria(categoria) {
-  const { cantidadTexto } = this._formatearCantidadCategoriaCorregida(categoria);
-  return cantidadTexto;
+const { cantidadTexto } = this._formatearCantidadCategoriaCorregida(categoria);
+return cantidadTexto;
 }
 }
 
