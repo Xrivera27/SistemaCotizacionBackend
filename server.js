@@ -37,11 +37,16 @@ const limiter = rateLimit({
  }
 });
 
-// Configurar CORS
+// En tu server.js - CORS con dominio específico
 const corsOptions = {
- origin: process.env.FRONTEND_URL,
- credentials: true,
- optionsSuccessStatus: 200
+  origin: [
+    'https://perdomocotizacion.netlify.app',  // ✅ Tu dominio exacto
+    'http://localhost:8080'  // Para desarrollo
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 };
 
 // Middlewares globales
